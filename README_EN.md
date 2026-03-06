@@ -1,7 +1,7 @@
 <div align="center">
 
-# 🕷️ Zhihu Scraper
-**Elegant, Stable, High-Performance Zhihu Content Extractor**
+# Zhihu Scraper
+**A local-first Zhihu extraction tool. It prefers protocol-layer fetching, falls back to Playwright when needed, and archives results as Markdown plus SQLite.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
@@ -18,43 +18,24 @@
 
 </div>
 
-> ⚠️ **Disclaimer**: This project is for academic research and personal learning only. Please respect Zhihu's Terms of Service and use responsibly.
+> For academic research and personal learning only. Please respect Zhihu's Terms of Service, and never commit `cookies.json`.
 
----
+## Why This Project
 
-## Table of Contents
+- Protocol-first: answers, question pages, and collection monitoring primarily use `curl_cffi`
+- Practical fallback: column pages can fall back to Playwright when blocked
+- Local archive: output includes Markdown files, downloaded images, and `zhihu.db`
+- Built for personal knowledge bases: scrape first, organize and search later
 
-- [Why Choose It](#why-choose-it)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Technical Architecture](#technical-architecture)
-- [Data Output](#data-output)
-- [FAQ](#faq)
+## 5-Minute Setup
 
----
+### 1. Requirements
 
-## Why Choose It?
+- Python `3.10+`
+- Node.js is recommended for `PyExecJS`
+- Playwright browser binaries if you want column fallback
 
-### Three Major Challenges in Scraping Zhihu
-
-| Challenge | Traditional Solution | Our Solution |
-|-----------|---------------------|--------------|
-| **x-zse-96 Signature** | Selenium full rendering | curl_cffi pure protocol TLS fingerprint |
-| **Cookie Validation** | Single account easily blocked | Cookie pool auto-rotation |
-| **Column Hardblocking** | Often 403 errors | Auto-fallback to Playwright |
-
-### Core Features
-
-- 🚀 **Zero-Overhead Protocol Layer**: curl_cffi simulates Chrome TLS fingerprint
-- 🛡️ **Smart Fallback Strategy**: API failure → automatic Playwright switchover
-- 📦 **Dual-Engine Persistence**: Markdown + SQLite
-- 🔄 **Incremental Monitoring**: Collection state tracking
-
----
-
-## Quick Start
-
-### Installation
+### 2. Install
 
 ```bash
 git clone https://github.com/yuchenzhu-research/zhihu-scraper.git
@@ -62,246 +43,157 @@ cd zhihu-scraper
 ./install.sh
 ```
 
-### Workflow
+### 3. Prepare Cookies
 
-```mermaid
-flowchart LR
-    A[Installation Complete] --> B{Configure Cookie?}
-    B -->|Yes| C[Edit cookies.json]
-    B -->|No| D[Guest Mode]
-    C --> E[Choose Usage Mode]
-    D --> E
-    E --> F[./zhihu interactive]
-    E --> G[./zhihu fetch URL]
-    E --> H[./zhihu batch file.txt]
-    E --> I[./zhihu monitor ID]
-    F --> J[Output data/ + zhihu.db]
-    G --> J
-    H --> J
-    I --> J
-```
-
-### Three Steps
-
-```mermaid
-flowchart TB
-    subgraph Input ["🟢 Start Ways"]
-        I["interactive"]
-        F["fetch URL"]
-        B["batch file.txt"]
-    end
-
-    I --> A
-    F --> A
-    B --> A
-
-    subgraph Core_Modules
-        A[cli/app.py<br />CLI Entry]
-        A --> S[core/scraper.py<br />Scraper Core]
-        S --> C[core/converter.py<br />HTML→Markdown]
-        C --> D["db.py + Markdown<br />Persistence"]
-    end
-
-    D --> O["data/ + zhihu.db"]
-```
-Usage Examples:
-
-**Method 1: Interactive UI Mode (Recommended)**
-```bash
-python cli/app.py interactive
-```
-
-**Method 2: CLI / API Mode**
-```bash
-python cli/app.py fetch "https://www.zhihu.com/p/123456"
-```
-
-> 💡 If you encounter permission issues when running `./zhihu`, we recommend using `python cli/app.py` directly.
-
-### Python SDK
-
-```python
-import asyncio
-from core.scraper import ZhihuDownloader
-from core.converter import ZhihuConverter
-
-async def main():
-    downloader = ZhihuDownloader("https://www.zhihu.com/question/28696373/answer/2835848212")
-    data = await downloader.fetch_page()
-    converter = ZhihuConverter()
-    markdown = converter.convert(data['html'])
-    print(markdown[:200])
-
-asyncio.run(main())
-```
-
----
-
-## Usage
-
-### CLI Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `fetch` | Fetch single URL | `./zhihu fetch "URL"` |
-| `batch` | Batch fetch | `./zhihu batch urls.txt -c 4` |
-| `monitor` | Monitor collection incrementally | `./zhihu monitor 78170682` |
-| `query` | Search local data | `./zhihu query "keyword"` |
-| `interactive` | Interactive UI | `./zhihu interactive` |
-| `config` | Show configuration | `./zhihu config --show` |
-| `check` | Environment check | `./zhihu check` |
-
-### Configuring Cookies (Recommended)
-
-You need to get Cookies after logging into Zhihu. We recommend using one of the following two methods:
-
-#### Method A: Browser Application Panel (Fastest)
-
-1. Open Chrome, ensure you are **logged in** to Zhihu (`https://www.zhihu.com`).
-2. Press `F12` (Mac: `⌥⌘I`) to open Developer Tools.
-3. Navigate to the **Application** tab.
-4. On the left pane, expand: `Storage` → `Cookies` → `https://www.zhihu.com`.
-5. In the list on the right, search for or find: `z_c0` and `d_c0`.
-6. Copy their Values and format them into `cookies.json` like this:
+Your local `cookies.json` should ideally contain at least:
 
 ```json
 [
-    {"name": "z_c0", "value": "Your z_c0 value", "domain": ".zhihu.com"},
-    {"name": "d_c0", "value": "Your d_c0 value", "domain": ".zhihu.com"}
+  {"name": "z_c0", "value": "your z_c0", "domain": ".zhihu.com"},
+  {"name": "d_c0", "value": "your d_c0", "domain": ".zhihu.com"}
 ]
 ```
-> 💡 *Note*: If you cannot find them here, it usually means you are not logged in, your session expired, or the current domain is not `www.zhihu.com` (e.g., you are on `zhuanlan.zhihu.com`). Make sure to try this on the Zhihu homepage, and check all Zhihu-related domains on the left.
 
-#### Method B: Browser Network Panel (For HttpOnly Cookies)
+How to get them:
 
-If Method A doesn't work, use this method:
-1. Open Developer Tools and navigate to the **Network** tab.
-2. Check the **Preserve log** option.
-3. Refresh the page (`Cmd+R` / `Ctrl+R`).
-4. Click on any Fetch/XHR request in the list (e.g., `api` related requests).
-5. On the right pane, select **Headers** → **Request Headers**.
-6. Find the `cookie:` field, search for `z_c0=` and `d_c0=` within it, extract their values, and format them into the JSON.
+1. Sign in at `https://www.zhihu.com`
+2. Open browser developer tools
+3. Find `z_c0` and `d_c0` in `Application -> Cookies` or `Network -> Request Headers`
+4. Save them into local `cookies.json`
 
-### 💡 Scraping Strategy & Limits
+### 4. Run Your First Fetch
 
-| Content Type | Guest (No Cookie) | Logged In (With Cookie) | Recommendation |
-| :--- | :--- | :--- | :--- |
-| **Answers / Questions** | ✅ Supported (Top 3 only) | ✅ Unlimited (Fast/Stable) | Best used via `interactive` |
-| **Column Articles** | ❌ Mostly Blocked (403) | ✅ Supported (Auto Fallback) | **Cookie Required** for bypassing WAF |
-
-> **💡 Stability Tips**:
-> - **Prefer Single Fetch**: We recommend using `interactive` mode to input URLs one by one. This simulates human behavior better than massive `batch` jobs. Since Columns often require browser rendering, handling them one by one is more reliable.
-> - **Column Special Handling**: Zhihu's Column WAF blocks pure protocol requests. If you see an `article_forbidden` error, it is expected; the system will automatically trigger a Playwright "fallback" to get the content.
-
-> 💡 Guest mode is available without Cookies, but some content will be restricted (e.g. comments, bottom half of Yanxuan articles).
-
----
-
-## Technical Architecture
-
-```mermaid
-flowchart TD
-    subgraph Input_Layer ["Input Layer"]
-        URL[URL] --> CLI[CLI / TUI]
-    end
-
-    subgraph Fetch_Layer ["Fetch Layer"]
-        CLI --> Type{URL Type?}
-        Type -->|Column| API["API Client<br>curl_cffi"]
-        Type -->|Answer| Answer[Answer API]
-        Type -->|Question| Question[Question API]
-        API --> OK{Success?}
-        Answer --> OK
-        Question --> OK
-        OK -->|403| Fallback[Playwright Fallback]
-        OK -->|200| Parse[Parse HTML]
-        Fallback --> Parse
-    end
-
-    subgraph Process_Layer ["Process Layer"]
-        Parse --> Convert[HTML → Markdown]
-        Convert --> Images[Download Images]
-    end
-
-    subgraph Storage_Layer ["Storage Layer"]
-        Images --> Local[data/ Directory]
-        Local --> SQLite[zhihu.db]
-    end
-
-    style Input_Layer fill:#e3f2fd
-    style Fetch_Layer fill:#fff3e0
-    style Process_Layer fill:#f3e5f5
-    style Storage_Layer fill:#e8f5e9
+```bash
+./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-### Cookie Rotation Strategy
+If `./zhihu` is not executable:
+
+```bash
+python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
+```
+
+## Support Matrix
+
+| Content Type | Without Cookie | With Cookie | Notes |
+|---|---|---|---|
+| Single answer | Works | Works | Most stable path |
+| Question page answers | Limited | Works | Guest mode usually sees only a subset |
+| Column article | Often blocked | Works | Can fall back to Playwright |
+| Collection monitoring | Not recommended | Works | Logged-in sessions are more reliable |
+
+## Common Commands
+
+| Command | Purpose | Example |
+|---|---|---|
+| `fetch` | Fetch one URL or extract multiple URLs from text | `./zhihu fetch "URL"` |
+| `batch` | Fetch URLs from a file | `./zhihu batch urls.txt -c 4` |
+| `monitor` | Incrementally monitor a collection | `./zhihu monitor 78170682` |
+| `query` | Search the local database | `./zhihu query "Transformer"` |
+| `interactive` | Launch the interactive UI | `./zhihu interactive` |
+| `config` | Show current configuration | `./zhihu config --show` |
+| `check` | Validate dependencies and runtime environment | `./zhihu check` |
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    A[Request API] --> B{Return 403?}
-    B -->|Yes| C[Cookie Rotation]
-    B -->|No| D[Normal Response]
-    C --> E{Have Spare?}
-    E -->|Yes| A
-    E -->|No| F[Playwright Fallback]
-    F --> D
+    A["CLI / TUI"] --> B["Scraper Service"]
+    B --> C["Zhihu API Client<br/>curl_cffi"]
+    B --> D["Browser Fallback<br/>Playwright"]
+    B --> E["HTML -> Markdown"]
+    E --> F["images/"]
+    E --> G["zhihu.db"]
+    E --> H["index.md"]
 ```
 
----
+The design is intentionally simple:
 
-## Data Output
+- Browser automation is a fallback, not the primary path.
+- Local extraction and archiving matter more than building an online service.
 
-### File Structure
+## Execution Flow
 
+```mermaid
+flowchart TD
+    A["Input URL / Collection ID"] --> B{"Content type"}
+    B -->|Answer / Question| C["Protocol fetch"]
+    B -->|Column| D["Column request"]
+    C --> E["HTML / JSON available"]
+    D --> F{"Blocked?"}
+    F -->|No| E
+    F -->|Yes| G["Playwright fallback"]
+    G --> E
+    E --> H["Convert to Markdown"]
+    H --> I["Download images"]
+    I --> J["Write to data/ and zhihu.db"]
 ```
+
+## Project Layout
+
+```text
+cli/           command entrypoint and interactive UI
+core/          scraping, conversion, database, monitoring logic
+static/        signature scripts and static assets
+data/          local output directory, ignored by Git
+browser_data/  browser runtime data, ignored by Git
+```
+
+## Output
+
+By default, results are written to `data/`:
+
+```text
 data/
-├── [2026-03-03] Article Title/
-│   ├── index.md        # Markdown file
-│   └── images/         # Local images
-│       ├── v2-abc123.jpg
-│       └── v2-def456.png
-└── zhihu.db            # SQLite database
+├── [2026-03-06] Title (answer-1234567890)/
+│   ├── index.md
+│   └── images/
+└── zhihu.db
 ```
 
-### SQLite Database
+SQLite stores:
 
-```sql
-CREATE TABLE articles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    answer_id TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL,
-    title TEXT,
-    author TEXT,
-    url TEXT,
-    content_md TEXT,
-    collection_id TEXT,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
-);
+- content ID and type
+- title, author, and source URL
+- generated Markdown
+- related collection ID when monitoring is used
+
+## Local Development
+
+Install development dependencies:
+
+```bash
+pip install -e ".[dev]"
 ```
 
----
+Useful checks:
+
+```bash
+python3 -m compileall cli core
+python3 cli/app.py check
+pytest
+ruff check cli core
+```
 
 ## FAQ
 
-### Q: Getting "Cookie required" error?
-A: Edit `cookies.json` and fill in your login cookie.
+### `check` says Playwright is missing
 
-### Q: Too slow?
-A: Adjust `humanize.min_delay` and `max_delay` in `config.yaml`.
+Protocol mode still works. Only the column fallback path is unavailable:
 
-### Q: Extraction failed/blocked?
-A: The project will auto-fallback to Playwright mode.
+```bash
+pip install -e ".[full]"
+playwright install chromium
+```
 
-### Q: Can it run on Windows?
-A: Yes! Python 3.10+ and Git are sufficient.
+### Why is guest mode incomplete for question pages
 
+That is a Zhihu visibility restriction, not a scraper-side omission.
 
+### Why do some column pages still fail
 
-<p align="center">
-  <a href="#top">⬆ Back to Top</a>
-</p>
+Columns are more aggressively protected. In practice you may need fresh cookies, a new login session, or time for the session to cool down.
 
----
+### Why must `cookies.json` stay local
 
-*📝 This project is for academic research and personal learning only.*
+Because it is effectively a login credential. Once it enters commit history, it should be treated as leaked.
