@@ -1,12 +1,13 @@
 <div align="center">
 
 # Zhihu Scraper
-**面向本地归档的知乎内容提取工具。优先走协议层，必要时降级 Playwright，结果同时落盘 Markdown 和 SQLite。**
+**面向本地归档的知乎内容提取工具。默认走协议层，专栏受限时降级 Playwright，结果同时保存为 Markdown 和 SQLite。**
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/github/stars/yuchenzhu-research/zhihu-scraper?style=flat-square&logo=github&color=blue" alt="Stars" />
+  <img src="https://img.shields.io/badge/protocol-first-curl__cffi-0F766E?style=flat-square" alt="Protocol First" />
+  <img src="https://img.shields.io/badge/fallback-Playwright-2EAD33?style=flat-square" alt="Playwright Fallback" />
 </p>
 
 <p align="center">
@@ -16,20 +17,32 @@
   </strong>
 </p>
 
+<p align="center">
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#常用命令">常用命令</a> ·
+  <a href="#架构设计">架构设计</a> ·
+  <a href="#常见问题">常见问题</a>
+</p>
+
 </div>
 
-> 仅供学术研究和个人学习使用。请遵守知乎服务条款，不要把 `cookies.json` 提交到仓库。
+> 仅供学术研究和个人学习使用。请遵守知乎服务条款，并确保 `cookies.json` 只保留在本地。
 
-## 为什么用它
+## 一句话理解
 
-- 协议层优先：回答、问题页、收藏夹监控默认走 `curl_cffi`
-- 智能兜底：专栏文章遇到 403 时可降级到 Playwright
-- 本地归档：输出 Markdown、图片目录和 `zhihu.db`
-- 适合个人知识库：抓完就能检索，不依赖在线服务
+这是一个偏本地使用的知乎抓取器：优先走轻量协议层，必要时才启浏览器；抓完直接沉淀为 Markdown 文件和本地数据库，适合做个人资料归档和知识库积累。
 
-## 5 分钟开始
+## 适合什么场景
 
-### 1. 环境
+| 适合 | 不适合 |
+|---|---|
+| 批量归档回答、问题页、专栏文章 | 做长期在线爬虫平台 |
+| 保存学习资料到本地知识库 | 追求零风控、零封禁风险 |
+| 用 SQLite 做本地搜索和整理 | 替代正式的数据服务后端 |
+
+## 快速开始
+
+### 1. 环境要求
 
 - Python `3.10+`
 - 建议安装 Node.js，供 `PyExecJS` 使用
@@ -45,7 +58,7 @@ cd zhihu-scraper
 
 ### 3. 准备 Cookie
 
-本地 `cookies.json` 至少建议放这两个字段：
+本地 `cookies.json` 至少建议包含：
 
 ```json
 [
@@ -54,14 +67,14 @@ cd zhihu-scraper
 ]
 ```
 
-获取方法：
+获取步骤：
 
 1. 登录 `https://www.zhihu.com`
 2. 打开开发者工具
 3. 在 `Application -> Cookies` 或 `Network -> Request Headers` 找到 `z_c0` / `d_c0`
 4. 保存到本地 `cookies.json`
 
-### 4. 跑第一条
+### 4. 先跑一条
 
 ```bash
 ./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
@@ -94,25 +107,54 @@ python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848
 | `config` | 查看当前配置 | `./zhihu config --show` |
 | `check` | 检查依赖和运行环境 | `./zhihu check` |
 
-## 架构概览
+推荐的上手顺序：
+
+1. 用 `check` 看环境是否完整
+2. 用 `fetch` 跑一条回答或专栏
+3. 再用 `batch` 或 `monitor` 进入批量场景
+
+## 架构设计
 
 ```mermaid
 flowchart LR
-    A["CLI / TUI"] --> B["Scraper Service"]
-    B --> C["Zhihu API Client<br/>curl_cffi"]
-    B --> D["Browser Fallback<br/>Playwright"]
-    B --> E["HTML -> Markdown"]
-    E --> F["images/"]
-    E --> G["zhihu.db"]
-    E --> H["index.md"]
+    subgraph I["入口层"]
+        A["CLI 命令"]
+        B["TUI 交互"]
+    end
+
+    subgraph S["抓取层"]
+        C["Zhihu API Client<br/>curl_cffi"]
+        D["Browser Fallback<br/>Playwright"]
+    end
+
+    subgraph P["处理层"]
+        E["HTML / JSON 解析"]
+        F["Markdown 转换"]
+        G["图片下载"]
+    end
+
+    subgraph O["输出层"]
+        H["index.md"]
+        J["zhihu.db"]
+    end
+
+    A --> C
+    B --> C
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    F --> J
 ```
 
-设计原则很简单：
+核心设计点：
 
-- 浏览器不是主路径，只做兜底。
-- 抓取和本地归档是第一优先级，不做在线平台依赖。
+- 浏览器只做兜底，不做主路径
+- 抓取后立即本地化，不依赖在线服务
+- 输出文件和数据库并存，方便阅读和检索
 
-## 执行流程
+## 执行流
 
 ```mermaid
 flowchart TD
@@ -120,13 +162,14 @@ flowchart TD
     B -->|回答 / 问题| C["协议层抓取"]
     B -->|专栏| D["专栏请求"]
     C --> E["拿到 HTML / JSON"]
-    D --> F{"被拦截?"}
+    D --> F{"是否被拦截"}
     F -->|否| E
     F -->|是| G["Playwright 降级"]
     G --> E
-    E --> H["转换 Markdown"]
-    H --> I["下载图片"]
-    I --> J["写入 data/ 与 zhihu.db"]
+    E --> H["转换为 Markdown"]
+    H --> I["下载图片并整理资源"]
+    I --> J["写入 data/"]
+    I --> K["写入 zhihu.db"]
 ```
 
 ## 项目结构
@@ -151,12 +194,11 @@ data/
 └── zhihu.db
 ```
 
-数据库里会保存：
+其中：
 
-- 内容 ID 与类型
-- 标题、作者、来源 URL
-- 转换后的 Markdown
-- 监控模式下的收藏夹关联
+- `index.md` 适合直接阅读和二次编辑
+- `images/` 保存文内图片资源
+- `zhihu.db` 便于本地搜索和后续整理
 
 ## 本地开发
 

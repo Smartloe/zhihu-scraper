@@ -1,12 +1,13 @@
 <div align="center">
 
 # Zhihu Scraper
-**A local-first Zhihu extraction tool. It prefers protocol-layer fetching, falls back to Playwright when needed, and archives results as Markdown plus SQLite.**
+**A local-first Zhihu extraction tool. It uses protocol-layer fetching by default, falls back to Playwright for blocked columns, and stores results as Markdown plus SQLite.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/github/stars/yuchenzhu-research/zhihu-scraper?style=flat-square&logo=github&color=blue" alt="Stars" />
+  <img src="https://img.shields.io/badge/protocol-first-curl__cffi-0F766E?style=flat-square" alt="Protocol First" />
+  <img src="https://img.shields.io/badge/fallback-Playwright-2EAD33?style=flat-square" alt="Playwright Fallback" />
 </p>
 
 <p align="center">
@@ -16,18 +17,30 @@
   </strong>
 </p>
 
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#common-commands">Commands</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#faq">FAQ</a>
+</p>
+
 </div>
 
-> For academic research and personal learning only. Please respect Zhihu's Terms of Service, and never commit `cookies.json`.
+> For academic research and personal learning only. Please respect Zhihu's Terms of Service, and keep `cookies.json` local.
 
-## Why This Project
+## In One Line
 
-- Protocol-first: answers, question pages, and collection monitoring primarily use `curl_cffi`
-- Practical fallback: column pages can fall back to Playwright when blocked
-- Local archive: output includes Markdown files, downloaded images, and `zhihu.db`
-- Built for personal knowledge bases: scrape first, organize and search later
+This is a local-use Zhihu scraper: stay on the lightweight protocol path whenever possible, only open a browser when necessary, and archive everything into Markdown files plus a local database.
 
-## 5-Minute Setup
+## Best-Fit Scenarios
+
+| Good Fit | Not a Good Fit |
+|---|---|
+| Archiving answers, question pages, and column articles | Building a long-running online scraping platform |
+| Saving learning material into a local knowledge base | Expecting zero anti-bot friction |
+| Searching and organizing content with SQLite | Replacing a production-grade data service |
+
+## Quick Start
 
 ### 1. Requirements
 
@@ -94,23 +107,52 @@ python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848
 | `config` | Show current configuration | `./zhihu config --show` |
 | `check` | Validate dependencies and runtime environment | `./zhihu check` |
 
+Suggested adoption path:
+
+1. Run `check` to validate the environment
+2. Use `fetch` on a single answer or column page
+3. Move to `batch` or `monitor` for larger jobs
+
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A["CLI / TUI"] --> B["Scraper Service"]
-    B --> C["Zhihu API Client<br/>curl_cffi"]
-    B --> D["Browser Fallback<br/>Playwright"]
-    B --> E["HTML -> Markdown"]
-    E --> F["images/"]
-    E --> G["zhihu.db"]
-    E --> H["index.md"]
+    subgraph I["Entry Layer"]
+        A["CLI Commands"]
+        B["TUI"]
+    end
+
+    subgraph S["Fetch Layer"]
+        C["Zhihu API Client<br/>curl_cffi"]
+        D["Browser Fallback<br/>Playwright"]
+    end
+
+    subgraph P["Processing Layer"]
+        E["HTML / JSON Parsing"]
+        F["Markdown Conversion"]
+        G["Image Download"]
+    end
+
+    subgraph O["Output Layer"]
+        H["index.md"]
+        J["zhihu.db"]
+    end
+
+    A --> C
+    B --> C
+    C --> E
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    F --> J
 ```
 
-The design is intentionally simple:
+Core ideas:
 
-- Browser automation is a fallback, not the primary path.
-- Local extraction and archiving matter more than building an online service.
+- Browser automation is fallback-only, not the main path
+- Extraction is designed for local archival rather than hosted services
+- Files and database records are stored together for reading plus search
 
 ## Execution Flow
 
@@ -125,8 +167,9 @@ flowchart TD
     F -->|Yes| G["Playwright fallback"]
     G --> E
     E --> H["Convert to Markdown"]
-    H --> I["Download images"]
-    I --> J["Write to data/ and zhihu.db"]
+    H --> I["Download images and organize assets"]
+    I --> J["Write to data/"]
+    I --> K["Write to zhihu.db"]
 ```
 
 ## Project Layout
@@ -151,12 +194,11 @@ data/
 └── zhihu.db
 ```
 
-SQLite stores:
+In practice:
 
-- content ID and type
-- title, author, and source URL
-- generated Markdown
-- related collection ID when monitoring is used
+- `index.md` is the reading-friendly artifact
+- `images/` stores local media assets
+- `zhihu.db` supports local search and later organization
 
 ## Local Development
 
