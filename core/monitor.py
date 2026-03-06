@@ -14,7 +14,7 @@ monitor.py — 收藏夹增量监控模块
 
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .config import get_logger
 from .api_client import ZhihuAPIClient
@@ -59,7 +59,7 @@ class CollectionMonitor:
         except Exception as e:
             self.log.error("save_monitor_state_failed", error=str(e))
 
-    def get_new_items(self, collection_id: str) -> List[dict]:
+    def get_new_items(self, collection_id: str) -> Tuple[List[dict], Optional[str]]:
         """
         Get new items from collection.
         Returned data structure contains basic info needed for scraping: url, type, title, etc.

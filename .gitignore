@@ -37,17 +37,28 @@ _agents/
 .DS_Store
 
 # ========================================
-# Project - 本地数据 (不上传)
+# Project - 运行产物与敏感信息 (不上传)
 # ========================================
-data/*
-!data/[2026-03-05] MIT—线性代数笔记19 行列式公式和代数余子式/
-!data/[2026-03-05] 概率论公式定理大全/
+# 抓取结果目录只保留说明文档，实际导出内容不进版本库
+data/**
+!data/
 !data/README.md
 
-browser_data/        # 浏览器数据
-logs/                # 日志文件
-cookies.json         # 用户 Cookie 敏感信息
-cookie_pool/         # 多账号轮换备用池文件夹
+# 浏览器 profile / 日志 / 本地数据库
+browser_data/
+logs/
+*.db
+*.db-shm
+*.db-wal
+
+# Cookie 与账号池属于敏感信息
+cookies.json
+cookie_pool/
+
+# 监控状态与本地产物
+data/.monitor_state.json
+.monitor_state.json
+zhihu_scraper.egg-info/
 
 # Debug 文件
 *.html              # debug_page.html 等
@@ -55,9 +66,7 @@ debug_*.py
 debug_*/
 .bak
 
-.monitor_state.json # 增量监测状态
 .venv_tls_test/     # TLS测试沙箱
-zhihu.db            # SQLite本地数据库 (如果独立放置)
 # ========================================
 # docs/
 # !.gitkeep

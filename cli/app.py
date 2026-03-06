@@ -276,9 +276,11 @@ def monitor(
 
     rprint(f"\n[bold]📊 Monitor download completed / 监控下载完成: {success} success / 成功, {failed} failed / 失败[/bold]")
 
-    if success > 0:
+    if failed == 0 and success > 0:
         m.mark_updated(collection_id, new_last_id)
         rprint(f"[cyan]✅ Saved latest progress pointer / 已保存最新进度指针: {new_last_id}[/cyan]")
+    elif failed > 0:
+        rprint("[yellow]⚠️ Partial failures detected, monitoring pointer was not advanced / 存在失败项，本次不会推进监控游标，避免漏抓。[/yellow]")
 
 
 @app.command("query")
@@ -410,8 +412,6 @@ def check() -> None:
     2. cookies.json valid
     3. Playwright browser available
     """
-    from playwright.async_api import async_playwright
-
     rprint("🔍 System check... / 系统检查...\n")
 
     # Check config file / 检查配置文件
@@ -430,12 +430,16 @@ def check() -> None:
     try:
         asyncio.run(_check_playwright())
         rprint("✅ Playwright OK / 正常")
+    except ModuleNotFoundError:
+        rprint("⚠️ Playwright not installed / 未安装。专栏降级模式暂不可用，可执行 `pip install -e \".[full]\"`")
     except Exception as e:
         rprint(f"❌ Playwright error / 错误: {e}")
 
 
 async def _check_playwright() -> None:
     """Check if playwright is available / 检查 playwright 是否可用"""
+    from playwright.async_api import async_playwright
+
     async with async_playwright() as pw:
         await pw.chromium.launch(headless=True)
 
@@ -554,65 +558,76 @@ async def _fetch_and_save(
     """
     from datetime import datetime
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     downloader = ZhihuDownloader(url)
-    data = await downloader.fetch_page(**scrape_config)
+    fetch_kwargs = dict(scrape_config)
+    fetch_kwargs["headless"] = headless
+    data = await downloader.fetch_page(**fetch_kwargs)
 
     if not data:
         rprint("[yellow]⚠️  No content obtained / 未获取到内容[/yellow]")
         return
 
     today = datetime.now().strftime("%Y-%m-%d")
+    image_cfg = cfg.crawler.images
+    images_subdir = cfg.output.images_subdir or "images"
 
     # Handle single or multiple results (question page returns multiple answers)
     # 处理单个或多个结果 (问题页返回多个回答列表)
     items = data if isinstance(data, list) else [data]
 
-    for item in items:
-        title = sanitize_filename(item["title"])
-        author = sanitize_filename(item["author"])
+    from core.db import ZhihuDatabase
 
-        folder_name = f"[{today}] {title}"
-        folder = output_dir / folder_name
-        folder.mkdir(parents=True, exist_ok=True)
+    db = ZhihuDatabase(str(output_dir / "zhihu.db"))
+    try:
+        for item in items:
+            title = sanitize_filename(item["title"])
+            author = sanitize_filename(item["author"])
+            item_date = item.get("date") or today
+            source_url = item.get("url") or url
+            item_key = sanitize_filename(f"{item.get('type', 'item')}-{item.get('id', 'unknown')}", max_length=80)
 
-        # Download images / 下载图片
-        img_map = {}
-        if download_images:
-            img_urls = ZhihuConverter.extract_image_urls(item["html"])
-            if img_urls:
-                rprint(f"   📥 Downloading {len(img_urls)} images... / 下载 {len(img_urls)} 张图片...")
-                img_map = await ZhihuDownloader.download_images(
-                    img_urls,
-                    folder / "images"
-                )
+            folder_name = f"[{item_date}] {title} ({item_key})"
+            folder = output_dir / folder_name
+            folder.mkdir(parents=True, exist_ok=True)
 
-        # Convert and save Markdown / 转换并保存 Markdown
-        converter = ZhihuConverter(img_map=img_map)
-        md = converter.convert(item["html"])
+            # Download images / 下载图片
+            img_map = {}
+            if download_images:
+                img_urls = ZhihuConverter.extract_image_urls(item["html"])
+                if img_urls:
+                    rprint(f"   📥 Downloading {len(img_urls)} images... / 下载 {len(img_urls)} 张图片...")
+                    img_map = await ZhihuDownloader.download_images(
+                        img_urls,
+                        folder / images_subdir,
+                        concurrency=image_cfg.concurrency,
+                        timeout=image_cfg.timeout,
+                        relative_prefix=images_subdir,
+                    )
 
-        header = (
-            f"# {item['title']}\n\n"
-            f"> **Author / 作者**: {item['author']}  \n"
-            f"> **Source / 来源**: [{url}]({url})  \n"
-            f"> **Date / 日期**: {today}\n\n"
-            "---\n\n"
-        )
+            # Convert and save Markdown / 转换并保存 Markdown
+            converter = ZhihuConverter(img_map=img_map)
+            md = converter.convert(item["html"])
 
-        out_path = folder / "index.md"
-        full_md = header + md
-        out_path.write_text(full_md, encoding="utf-8")
+            header = (
+                f"# {item['title']}\n\n"
+                f"> **Author / 作者**: {item['author']}  \n"
+                f"> **Source / 来源**: [{source_url}]({source_url})  \n"
+                f"> **Date / 日期**: {item_date}\n\n"
+                "---\n\n"
+            )
 
-        # Save to SQLite database / 保存到 SQLite 数据库
-        from core.db import ZhihuDatabase
-        db_folder = output_dir if output_dir.name == "data" else output_dir.parent
-        if db_folder.name != "data":
-             db_folder = Path("./data")  # fallback
-        db = ZhihuDatabase(str(db_folder / "zhihu.db"))
-        db.save_article(item, full_md, collection_id=collection_id)
+            out_path = folder / "index.md"
+            full_md = header + md
+            out_path.write_text(full_md, encoding="utf-8")
+
+            db.save_article(item, full_md, collection_id=collection_id)
+
+            rprint(f"✅ Saved / 保存: [cyan]{author}[/] - {title[:25]}...")
+            rprint(f"   📁 {out_path} & DB / 入库 DB")
+    finally:
         db.close()
-
-        rprint(f"✅ Saved / 保存: [cyan]{author}[/] - {title[:25]}...")
-        rprint(f"   📁 {out_path} & DB / 入库 DB")
 
 
 # ============================================================

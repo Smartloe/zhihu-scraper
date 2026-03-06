@@ -19,7 +19,12 @@ from typing import Optional, Dict
 from .config import get_logger
 
 
-async def extract_zhuanlan_html(article_id: str, session_cookies: Optional[Dict[str, str]] = None) -> Optional[dict]:
+async def extract_zhuanlan_html(
+    article_id: str,
+    session_cookies: Optional[Dict[str, str]] = None,
+    *,
+    headless: bool = True,
+) -> Optional[dict]:
     """
     Fetch column article data through Playwright silent rendering.
 
@@ -47,7 +52,7 @@ async def extract_zhuanlan_html(article_id: str, session_cookies: Optional[Dict[
     async with async_playwright() as p:
         # Use real Chrome browser type to reduce risk
         # 使用真实的 Chrome 浏览器类型降低风险
-        browser = await p.chromium.launch(headless=True, args=[
+        browser = await p.chromium.launch(headless=headless, args=[
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox"
         ])

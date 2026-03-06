@@ -103,14 +103,16 @@ class ZhihuDownloader:
         # 模拟部分延时，以避免瞬时高频请求
         await humanizer.page_load()
 
+        headless = kwargs.pop("headless", True)
+
         if self.page_type == "article":
-            return await self._extract_article()
+            return await self._extract_article(headless=headless)
         elif self.page_type == "question":
             return await self._extract_question(**kwargs)
         else:
             return await self._extract_answer()
 
-    async def _extract_article(self) -> dict:
+    async def _extract_article(self, *, headless: bool = True) -> dict:
         """提取专栏文章数据。
 
         流程说明：
@@ -136,7 +138,7 @@ class ZhihuDownloader:
 
             # 使用现有 session 的 cookies
             session_cookies = cookie_manager.get_current_session()
-            data = await extract_zhuanlan_html(article_id, session_cookies)
+            data = await extract_zhuanlan_html(article_id, session_cookies, headless=headless)
 
             if not data:
                 raise Exception(f"专栏文章 {article_id} API 及降级抓取均失败，请手工检查 URL 或重新分配 Cookie。")
@@ -256,6 +258,7 @@ class ZhihuDownloader:
         *,
         concurrency: int = 4,
         timeout: float = 30.0,
+        relative_prefix: str = "images",
     ) -> dict[str, str]:
         """
         Download images concurrently with deduplication.
@@ -355,7 +358,7 @@ class ZhihuDownloader:
                     local_path = dest / fname
 
                     if local_path.exists():
-                        url_to_local[url] = f"images/{fname}"
+                        url_to_local[url] = f"{relative_prefix}/{fname}"
                         return
 
                     resp = await client.get(url, timeout=timeout)
@@ -366,7 +369,7 @@ class ZhihuDownloader:
                         f.write(resp.content)
 
                     # 返回带 images/ 前缀的路径（用于 Markdown）
-                    url_to_local[url] = f"images/{fname}"
+                    url_to_local[url] = f"{relative_prefix}/{fname}"
 
                 except Exception as e:
                     print(f"⚠️ 图片下载失败 [{url}]: {e}")
