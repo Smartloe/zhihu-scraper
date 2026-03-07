@@ -450,7 +450,7 @@ def check() -> None:
         asyncio.run(_check_playwright())
         rprint("✅ Playwright OK / 正常")
     except ModuleNotFoundError:
-        rprint("⚠️ Playwright not installed / 未安装。专栏降级模式暂不可用，可执行 `pip install -e \".[full]\"`")
+        rprint(Text("⚠️ Playwright not installed / 未安装。专栏降级模式暂不可用，可执行 pip install -e '.[full]'", justify="left"))
     except Exception as e:
         rprint(f"❌ Playwright error / 错误: {e}")
 
@@ -459,8 +459,21 @@ async def _check_playwright() -> None:
     """Check if playwright is available / 检查 playwright 是否可用"""
     from playwright.async_api import async_playwright
 
+    browser_cfg = cfg.zhihu.browser
+    launch_args = browser_cfg.args or [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+    ]
+    launch_kwargs = {
+        "headless": browser_cfg.headless,
+        "args": launch_args,
+    }
+    if browser_cfg.channel:
+        launch_kwargs["channel"] = browser_cfg.channel
+
     async with async_playwright() as pw:
-        await pw.chromium.launch(headless=True)
+        browser = await pw.chromium.launch(**launch_kwargs)
+        await browser.close()
 
 
 # ============================================================

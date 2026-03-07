@@ -26,7 +26,7 @@
 
 </div>
 
-> For academic research and personal learning only. Please respect Zhihu's Terms of Service. The committed `cookies.json` is only a placeholder template and must be filled with your own values.
+> For academic research and personal learning only. Please respect Zhihu's Terms of Service. The repository provides `cookies.example.json` as a template; copy it to local `cookies.json` before adding real values.
 
 ## In One Line
 
@@ -58,7 +58,13 @@ cd zhihu-scraper
 
 ### 3. Prepare Cookies
 
-The repository already includes a `cookies.json` template. Open it and fill in:
+The repository includes a `cookies.example.json` template. Copy it first:
+
+```bash
+cp cookies.example.json cookies.json
+```
+
+Then open local `cookies.json` and fill in:
 
 ```json
 [

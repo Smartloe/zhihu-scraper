@@ -26,7 +26,7 @@
 
 </div>
 
-> 仅供学术研究和个人学习使用。请遵守知乎服务条款。仓库中的 `cookies.json` 是占位模板，需要你自行填入真实值。
+> 仅供学术研究和个人学习使用。请遵守知乎服务条款。仓库提供的是 `cookies.example.json` 模板，你需要复制为本地 `cookies.json` 后再填写真实值。
 
 ## 一句话理解
 
@@ -58,7 +58,13 @@ cd zhihu-scraper
 
 ### 3. 准备 Cookie
 
-仓库根目录已经提供 `cookies.json` 模板，直接打开并填入：
+仓库根目录提供了 `cookies.example.json` 模板，先复制一份：
+
+```bash
+cp cookies.example.json cookies.json
+```
+
+然后打开本地 `cookies.json` 填入：
 
 ```json
 [

@@ -214,7 +214,7 @@ async def run_interactive():
                         output_dir=DATA_DIR,
                         scrape_config=scrape_config,
                         download_images=True,
-                        headless=True
+                        headless=cfg.zhihu.browser.headless
                     )
 
                     progress.update(task_id, completed=1, total=1, description="✨ Task completed and DB synced / 任务完成并已同步数据库!")

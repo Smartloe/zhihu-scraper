@@ -90,6 +90,11 @@ echo "   ✅ Playwright Chromium 已安装"
 # 检查配置文件
 echo ""
 echo "📌 检查配置..."
+if [ ! -f "cookies.json" ] && [ -f "cookies.example.json" ]; then
+    cp "cookies.example.json" "cookies.json"
+    echo "   ✅ 已从 cookies.example.json 创建本地 cookies.json 模板"
+fi
+
 if [ ! -f "cookies.json" ]; then
     echo "   ⚠️  未找到 cookies.json"
     echo "   💡 如果不配置 Cookie，可以游客身份运行"
