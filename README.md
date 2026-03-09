@@ -1,147 +1,247 @@
 <div align="center">
 
-# Zhihu Scraper
-**面向本地归档的知乎内容提取工具。默认走协议层，专栏受限时降级 Playwright，结果同时保存为 Markdown 和 SQLite。**
+# Zhihu-Scraper
+### 知乎爬虫 | Local-First Zhihu Scraper
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/static/v1?label=protocol-first&message=curl__cffi&color=0F766E&style=flat-square" alt="Protocol First" />
-  <img src="https://img.shields.io/static/v1?label=fallback&message=Playwright&color=2EAD33&style=flat-square" alt="Playwright Fallback" />
+**一个面向本地归档的知乎内容抓取工具：优先走协议层，必要时降级 Playwright，输出直接落地为 Markdown、图片资源和 SQLite。**
+
+<p>
+  <img src="https://img.shields.io/static/v1?label=build&message=placeholder&color=8B949E&style=flat-square" alt="Build Badge" />
+  <img src="https://img.shields.io/static/v1?label=version&message=v3.0.0&color=2F81F7&style=flat-square" alt="Version Badge" />
+  <img src="https://img.shields.io/static/v1?label=license&message=MIT&color=3FB950&style=flat-square" alt="License Badge" />
+  <img src="https://img.shields.io/static/v1?label=python&message=3.10%2B&color=3776AB&style=flat-square&logo=python&logoColor=white" alt="Python Badge" />
 </p>
 
-<p align="center">
-  <strong>
-    简体中文 |
-    <a href="README_EN.md">English</a>
-  </strong>
+<p>
+  <strong>简体中文</strong> · <a href="README_EN.md">English</a>
 </p>
 
-<p align="center">
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#常用命令">常用命令</a> ·
-  <a href="#架构设计">架构设计</a> ·
-  <a href="#常见问题">常见问题</a>
+<p>
+  <a href="#快速开始-quick-start">快速开始</a> ·
+  <a href="#核心特性-features">核心特性</a> ·
+  <a href="#配置说明-configuration">配置说明</a> ·
+  <a href="#架构概览-architecture">架构概览</a> ·
+  <a href="#开发路线图-roadmap">开发路线图</a> ·
+  <a href="#常见问题-faq">FAQ</a>
 </p>
 
 </div>
 
-> 仅供学术研究和个人学习使用。请遵守知乎服务条款。仓库提供的是 `cookies.example.json` 模板，你需要复制为本地 `cookies.json` 后再填写真实值。
+> [!WARNING]
+> **Disclaimer / 免责声明**
+>
+> 本项目仅用于学习、研究、个人知识归档与技术交流。请遵守知乎服务条款、robots 约束以及当地法律法规。**严禁将其用于未授权的数据采集、商业倒卖、批量撞库、账号滥用等非法用途。**
 
-## 一句话理解
+## 项目简介 Overview
 
-这是一个偏本地使用的知乎抓取器：优先走轻量协议层，必要时才启浏览器；抓完直接沉淀为 Markdown 文件和本地数据库，适合做个人资料归档和知识库积累。
+`Zhihu-Scraper` 不是一个重平台、重后端的在线爬虫系统，而是一个**本地优先（Local-First）**的知乎内容归档工具。
 
-## 适合什么场景
+它当前适合做的事情：
 
-| 适合 | 不适合 |
-|---|---|
-| 批量归档回答、问题页、专栏文章 | 做长期在线爬虫平台 |
-| 保存学习资料到本地知识库 | 追求零风控、零封禁风险 |
-| 用 SQLite 做本地搜索和整理 | 替代正式的数据服务后端 |
+- 抓取**单条回答**
+- 抓取**专栏文章**
+- 抓取**问题页下最近 N 条回答**
+- 抓取**作者主页下的回答和专栏**
+- 对**收藏夹**做增量监控
+- 将结果保存为 **Markdown + 图片 + SQLite**
 
-## 快速开始
+它当前**还没有**正式做到的事情：
+
+- 话题维度抓取
+- JSON / CSV / MySQL 导出
+- GUI 图形界面
+- 基于 LLM 的自动内容分析
+
+这些会放进后面的 [开发路线图](#开发路线图-roadmap)。
+
+## 快速开始 Quick Start
+
+目标是让你在 **3 分钟内跑通第一次抓取**。
 
 ### 1. 环境要求
 
-- Python `3.10+`
-- 建议安装 Node.js，供 `PyExecJS` 使用
-- 如需专栏降级，安装 Playwright 浏览器
+- **Python 3.10+**
+- 可选：**Playwright**（专栏降级路径需要）
+- 可选：系统安装 **Chrome**
 
 ### 2. 安装
+
+如果你只想先跑基础协议模式：
 
 ```bash
 git clone https://github.com/yuchenzhu-research/zhihu-scraper.git
 cd zhihu-scraper
-./install.sh
+pip install -e .
 ```
 
-### 3. 准备 Cookie
+如果你希望连同浏览器降级能力一起安装：
 
-仓库根目录提供了 `cookies.example.json` 模板，先复制一份：
+```bash
+git clone https://github.com/yuchenzhu-research/zhihu-scraper.git
+cd zhihu-scraper
+pip install -e ".[full]"
+playwright install chromium
+```
+
+### 3. 配置 Cookie
+
+先从模板复制一份本地 Cookie 文件：
 
 ```bash
 cp cookies.example.json cookies.json
 ```
 
-然后打开本地 `cookies.json` 填入：
+然后填入你自己的 `z_c0` 和 `d_c0`：
 
 ```json
 [
-  {"name": "z_c0", "value": "你的 z_c0", "domain": ".zhihu.com"},
-  {"name": "d_c0", "value": "你的 d_c0", "domain": ".zhihu.com"}
+  {
+    "name": "z_c0",
+    "value": "YOUR_Z_C0_HERE",
+    "domain": ".zhihu.com",
+    "path": "/"
+  },
+  {
+    "name": "d_c0",
+    "value": "YOUR_D_C0_HERE",
+    "domain": ".zhihu.com",
+    "path": "/"
+  }
 ]
 ```
 
-获取步骤：
+### 4. Hello World
 
-1. 登录 `https://www.zhihu.com`
-2. 打开开发者工具
-3. 在 `Application -> Cookies` 或 `Network -> Request Headers` 找到 `z_c0` / `d_c0`
-4. 打开项目根目录的 `cookies.json`，把占位值替换成你自己的值
-
-### 4. 两种启动方式
-
-这个项目有两条使用路径，功能是一样的：
-
-- 包装脚本：`./zhihu ...`
-- 直接调用 Python 入口：`python3 cli/app.py ...`
-
-如果你的环境已经给 `./zhihu` 加了执行权限，优先用第一种；如果没有执行权限，或者你想更直观地看到入口文件，就用第二种。
-
-### 5. 先跑一条
-
-```bash
-./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
-```
-
-等价的 Python 入口写法：
+最简单的一次抓取：
 
 ```bash
 python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-问题页也可以一次抓多条回答：
+如果你更喜欢包装脚本，也可以这样：
 
 ```bash
-./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10
-python3 cli/app.py fetch "https://www.zhihu.com/question/28696373" -n 10
+./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-说明：
+### 5. 查看完整命令手册
 
-- `-n 20` 以内通常是一页内完成
-- `-n 20` 以上会自动进入分页抓取
-- 分页之间会插入随机等待，降低连续请求过快带来的风控风险
-- `-n 50` 以上会在 CLI 中给出更明显的风险提示
-
-作者主页也可以直接批量抓：
-
-```bash
-./zhihu creator "https://www.zhihu.com/people/hu-xi-jin" --answers 10 --articles 5
-python3 cli/app.py creator "https://www.zhihu.com/people/hu-xi-jin" --answers 10 --articles 5
-```
-
-作者模式的结果会单独落到 `data/creators/<url_token>/`，不会和普通 `fetch` 的结果混在一起。
-
-## 支持范围
-
-| 内容类型 | 无 Cookie | 有 Cookie | 说明 |
-|---|---|---|---|
-| 单条回答 | 可用 | 可用 | 最稳定 |
-| 问题页回答列表 | 受限 | 可用 | 已支持分页抓取；游客模式通常只能拿到少量回答 |
-| 专栏文章 | 容易被拦截 | 可用 | 失败时可降级 Playwright |
-| 收藏夹监控 | 不推荐 | 可用 | 依赖登录态更稳 |
-
-## 常用命令
-
-详细说明统一看：
+README 只保留首页级说明。所有命令细节统一在终端手册里：
 
 ```bash
 python3 cli/app.py manual
 ```
 
-命令速查：
+## 核心特性 Features
+
+- 🚀 **异步抓取 / Async pipeline**
+  - 批量任务、问题页分页和图片下载都走异步路径，适合本地高效归档。
+
+- 🧠 **协议优先 / Protocol-first**
+  - 默认使用协议层抓取，不把浏览器当主路径，启动更轻、资源占用更小。
+
+- 🛟 **专栏自动降级 / Fallback to Playwright**
+  - 专栏接口受限时，可切换到 Playwright 路径继续提取正文。
+
+- 👤 **作者模式 / Creator mode**
+  - 支持作者主页 URL 或 `url_token`，可批量抓最近回答和专栏。
+
+- 📚 **本地归档友好 / Archive-friendly**
+  - 抓取结果直接保存为 `index.md + images/ + zhihu.db`，适合长期沉淀。
+
+- 🔁 **Cookie 轮换 / Cookie rotation**
+  - 支持 `cookies.json` 与 `cookie_pool/*.json`，遇到风控时可轮换会话。
+
+- 📡 **增量监控 / Incremental monitoring**
+  - 可对知乎收藏夹做增量抓取，并保留进度指针，避免重复下载。
+
+- 🎛️ **双入口体验 / Two entry styles**
+  - 同时提供 `./zhihu ...` 和 `python3 cli/app.py ...` 两种启动方式。
+
+## 功能一览 What It Can Scrape
+
+| 类型 | 当前状态 | 说明 |
+|---|---|---|
+| 单条回答 | 已支持 | 最稳定 |
+| 专栏文章 | 已支持 | 失败时可走 Playwright |
+| 问题页回答列表 | 已支持 | 支持分页与风险提示 |
+| 作者主页回答 | 已支持 | `creator` 模式 |
+| 作者主页专栏 | 已支持 | `creator` 模式 |
+| 收藏夹增量监控 | 已支持 | `monitor` 模式 |
+| 话题抓取 | 规划中 | 尚未开放 CLI |
+| JSON / CSV / MySQL 导出 | 规划中 | 当前主输出为 Markdown + SQLite |
+
+## 配置说明 Configuration
+
+### Cookie 配置
+
+Cookie 是当前项目最重要的运行前提之一。
+
+- 配置文件路径默认在项目根目录：`cookies.json`
+- 模板文件是：`cookies.example.json`
+- 你也可以在 `config.yaml` 里修改 Cookie 路径：
+
+```yaml
+zhihu:
+  cookies:
+    file: "cookies.json"
+    required: true
+```
+
+### Cookie 池 / Cookie Pool
+
+如果你有多组登录态，可以放到：
+
+```text
+cookie_pool/
+├── account_a.json
+├── account_b.json
+└── account_c.json
+```
+
+程序会加载 `cookies.json` 和 `cookie_pool/*.json`，用于会话轮换。
+
+### 代理配置 Proxy
+
+这里要说清楚一件事：
+
+> [!IMPORTANT]
+> **当前仓库还没有稳定开放的 `config.yaml` 代理字段。**
+>
+> 也就是说，README 不能把“代理已完整内建”写成现状。
+
+如果你的环境必须走代理，当前更稳的做法是：
+
+- 在**系统或终端环境**里配置代理
+- 再运行本工具
+
+例如：
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+python3 cli/app.py check
+```
+
+但这一块目前仍属于**高级用法**，后续更合理的方案是把代理显式收进 `config.yaml`。
+
+### 安全提示 Security Notes
+
+> [!CAUTION]
+> - `cookies.json` 必须只保留在本地，**不要提交到 Git**
+> - 泄露过的 Cookie 不要继续复用，应该重新登录并更新
+> - 如果你要长期维护多个账号，建议使用 `cookie_pool/` 而不是把所有值塞进一个文件
+
+## 使用方式 Usage
+
+项目提供两条等价路径：
+
+```bash
+./zhihu <command> ...
+python3 cli/app.py <command> ...
+```
+
+常用命令速查：
 
 - `fetch`
 - `creator`
@@ -153,78 +253,15 @@ python3 cli/app.py manual
 - `check`
 - `manual`
 
-## 架构设计
+详细参数与示例统一在内置手册：
 
-```mermaid
-flowchart LR
-    subgraph I["入口层"]
-        A["CLI 命令"]
-        B["TUI 交互"]
-    end
-
-    subgraph S["抓取层"]
-        C["Zhihu API Client<br/>curl_cffi"]
-        D["Browser Fallback<br/>Playwright"]
-    end
-
-    subgraph P["处理层"]
-        E["HTML / JSON 解析"]
-        F["Markdown 转换"]
-        G["图片下载"]
-    end
-
-    subgraph O["输出层"]
-        H["index.md"]
-        J["zhihu.db"]
-    end
-
-    A --> C
-    B --> C
-    C --> E
-    D --> E
-    E --> F
-    F --> G
-    F --> H
-    F --> J
+```bash
+python3 cli/app.py manual
 ```
 
-核心设计点：
+## 输出结构 Output Layout
 
-- 浏览器只做兜底，不做主路径
-- 抓取后立即本地化，不依赖在线服务
-- 输出文件和数据库并存，方便阅读和检索
-
-## 执行流
-
-```mermaid
-flowchart TD
-    A["输入 URL / 收藏夹 ID"] --> B{"内容类型"}
-    B -->|回答 / 问题| C["协议层抓取"]
-    B -->|专栏| D["专栏请求"]
-    C --> E["拿到 HTML / JSON"]
-    D --> F{"是否被拦截"}
-    F -->|否| E
-    F -->|是| G["Playwright 降级"]
-    G --> E
-    E --> H["转换为 Markdown"]
-    H --> I["下载图片并整理资源"]
-    I --> J["写入 data/"]
-    I --> K["写入 zhihu.db"]
-```
-
-## 项目结构
-
-```text
-cli/           命令行入口与交互界面
-core/          抓取、转换、数据库、监控等核心逻辑
-static/        签名脚本与静态资源
-data/          本地输出目录，默认不提交
-browser_data/  浏览器运行数据，默认不提交
-```
-
-## 输出结果
-
-默认写入 `data/`：
+默认输出目录是 `data/`：
 
 ```text
 data/
@@ -236,22 +273,105 @@ data/
 │   └── hu-xi-jin/
 │       ├── creator.json
 │       ├── README.md
-│       └── [2026-03-06] 标题 (answer-1234567890)/
+│       └── [2026-03-06] 标题 (article-123456)/
 │           ├── index.md
 │           └── images/
 └── zhihu.db
 ```
 
-其中：
+说明：
 
-- `entries/` 保存普通 `fetch` / `batch` / `monitor` 抓下来的内容
-- `creators/<url_token>/` 保存作者模式的内容、作者信息和本地索引页
-- `index.md` 适合直接阅读和二次编辑
-- `images/` 保存文内图片资源
-- `zhihu.db` 便于本地搜索和后续整理
-- 仓库内需要长期保留的示例导出请放到 `examples/outputs/`
+- `entries/`：普通 `fetch / batch / monitor` 输出
+- `creators/<url_token>/`：作者模式输出
+- `creator.json`：作者元信息和同步状态
+- `README.md`：作者目录的本地索引页
+- `zhihu.db`：统一 SQLite 数据库
 
-## 本地开发
+## 架构概览 Architecture
+
+```mermaid
+flowchart LR
+    subgraph A["CLI Layer / 命令入口层"]
+        A1["cli/app.py"]
+        A2["cli/interactive.py"]
+    end
+
+    subgraph B["Fetch Layer / 抓取层"]
+        B1["core/scraper.py"]
+        B2["core/api_client.py"]
+        B3["core/browser_fallback.py"]
+    end
+
+    subgraph C["Data Layer / 数据层"]
+        C1["core/converter.py"]
+        C2["core/db.py"]
+        C3["core/monitor.py"]
+    end
+
+    subgraph D["Runtime Layer / 运行时"]
+        D1["core/config.py"]
+        D2["core/cookie_manager.py"]
+    end
+
+    A1 --> B1
+    A2 --> B1
+    B1 --> B2
+    B1 --> B3
+    B1 --> C1
+    C1 --> C2
+    A1 --> C3
+    B2 --> D2
+    B3 --> D2
+    A1 --> D1
+    A2 --> D1
+```
+
+### 当前架构的核心取向
+
+- **CLI-first**
+  - 这是一个命令行优先项目，不是在线服务平台
+
+- **Protocol-first**
+  - 默认优先 API / 协议层，浏览器只作为兜底
+
+- **File + DB 双输出**
+  - 一份给人看（Markdown）
+  - 一份给程序查（SQLite）
+
+## 技术栈 Tech Stack
+
+当前代码实际使用的主栈：
+
+- **Python 3.10+**
+- **Typer**：CLI 入口
+- **Rich / Questionary**：终端交互
+- **curl_cffi / HTTPX**：协议层请求与异步下载
+- **Playwright**：浏览器降级抓取
+- **PyYAML / structlog**：配置与日志
+- **SQLite**：本地数据落盘
+
+说明：
+
+> [!NOTE]
+> 你在项目规划中提到的 **Pydantic**、**JSON / CSV / MySQL 导出**、**话题抓取**，当前仓库还没有正式落地，因此我把它们放进了路线图，而没有写成“现有能力”。
+
+## 开发路线图 Roadmap
+
+- [x] 单条回答抓取
+- [x] 专栏文章抓取
+- [x] 问题页分页抓取
+- [x] 作者主页抓取（回答 + 专栏）
+- [x] 收藏夹增量监控
+- [x] Markdown + 图片 + SQLite 输出
+- [ ] 话题页抓取
+- [ ] JSON / CSV 导出
+- [ ] MySQL 落库
+- [ ] 更正式的代理配置层
+- [ ] GUI 图形界面
+- [ ] 基于 LLM 的内容摘要 / 标签 / 聚类分析
+- [ ] 更完整的测试与 CI
+
+## 本地开发 Development
 
 安装开发依赖：
 
@@ -259,34 +379,43 @@ data/
 pip install -e ".[dev]"
 ```
 
-常用检查：
+常用命令：
 
 ```bash
 python3 -m compileall cli core
 python3 cli/app.py check
-pytest
-ruff check cli core
+python3 cli/app.py manual
 ```
 
-## 常见问题
+## 常见问题 FAQ
 
-### `check` 提示 Playwright 未安装
+### 1. 为什么没有 Cookie 也能跑，但结果不完整？
 
-协议层依然能用，只是专栏降级不可用：
+游客模式可以抓一部分内容，但稳定性和可见范围都更弱。问题页、作者页、收藏夹监控更依赖登录态。
+
+### 2. 为什么专栏更容易失败？
+
+专栏路径的风控更强，所以项目设计上专门给专栏预留了 Playwright 兜底。
+
+### 3. 为什么 README 不展开所有命令参数？
+
+因为首页应该负责：
+
+- 让新用户 3 分钟上手
+- 明确能力边界
+- 告诉你去哪里看完整手册
+
+命令细节已经统一放进：
 
 ```bash
-pip install -e ".[full]"
-playwright install chromium
+python3 cli/app.py manual
 ```
 
-### 为什么游客模式抓不到完整问题页
+### 4. 为什么不直接把 `cookies.json` 提交到仓库？
 
-这是知乎侧的可见性限制，不是脚本本身遗漏。
+因为那是敏感凭据。仓库里只应该保留模板文件 `cookies.example.json`。
 
-### 为什么专栏偶尔还是失败
+## 许可协议 License
 
-专栏风控比回答更强，通常需要更新 Cookie、重新登录，或等待会话恢复。
+本项目采用 [MIT License](LICENSE)。
 
-### 仓库里的 `cookies.json` 为什么不能直接用
-
-因为仓库里提交的是占位模板，`YOUR_Z_C0_HERE` 和 `YOUR_D_C0_HERE` 不是真实 Cookie。你需要手动替换成自己的登录态。
