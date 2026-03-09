@@ -176,92 +176,210 @@ def manual() -> None:
     显示内置终端说明书，支持分页查看。
     """
     manual_text = f"""
-# Zhihu Scraper Manual / 使用说明书
+NAME
+  zhihu - Local-first Zhihu extractor with Markdown + SQLite outputs
+  zhihu - 面向本地归档的知乎提取工具（Markdown + SQLite）
 
-退出这份说明书：
-- 大多数终端里按 `q`
-- 如果分页器没接管，也可以按 `Ctrl+C`
+SYNOPSIS
+  ./zhihu <command> [options]
+  python3 cli/app.py <command> [options]
 
-两种启动方式：
-- 包装脚本：`./zhihu <command> ...`
-- Python 入口：`python3 cli/app.py <command> ...`
+PAGER
+  Exit manual / 退出说明书:
+  - press `q` in most terminals / 大多数终端按 `q`
+  - if pager is not active: `Ctrl+C` / 若分页器未接管可按 `Ctrl+C`
 
-常用命令：
+COMMAND INDEX
+  - fetch
+  - creator
+  - batch
+  - monitor
+  - query
+  - interactive
+  - config --show / --path
+  - check
+  - manual
 
-1. 环境检查
-`./zhihu check`
-`python3 cli/app.py check`
+COMMAND REFERENCE
 
-2. 抓单条内容
-`./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"`
-`python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"`
+1) fetch
+  Purpose:
+  - scrape one URL, or extract and scrape multiple Zhihu URLs from mixed text
+  - 支持从混合文本中自动识别多条知乎链接并抓取
 
-3. 抓问题页最近多条回答
-`./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10`
-`python3 cli/app.py fetch "https://www.zhihu.com/question/28696373" -n 10`
+  Supported links:
+  - article: https://zhuanlan.zhihu.com/p/<id>
+  - answer:  https://www.zhihu.com/question/<qid>/answer/<aid>
+  - question page: https://www.zhihu.com/question/<qid>
 
-问题页说明：
-- `-n 20` 以内通常是一页
-- `-n 20` 以上自动分页
-- 页间会自动随机等待
-- `-n 50` 以上风险会明显升高
+  Options:
+  - `-o, --output PATH` output base directory
+  - `-n, --limit INT` question-page answer count (must be >= 1)
+  - `-i, --no-images` skip image downloading
+  - `-b, --headless` browser headless switch for fallback path
 
-4. 作者模式
-`./zhihu creator "https://www.zhihu.com/people/iterator"`
-`python3 cli/app.py creator "https://www.zhihu.com/people/iterator"`
+  Behavior:
+  - `-n <= 20`: usually single page
+  - `-n > 20`: auto pagination with random waits
+  - `-n > 50`: higher anti-bot risk warning
 
-作者模式默认：
-- 最近 `10` 条回答
-- 最近 `5` 篇专栏
-- 默认下载图片
-- 输出到 `{DEFAULT_OUTPUT_DIR}`
+  Examples:
+  - `./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"`
+  - `./zhihu fetch "text ... https://www.zhihu.com/question/28696373 ..."`
+  - `./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10`
 
-作者模式常用参数：
-- `--answers 20`
-- `--articles 10`
-- `-i` / `--no-images`
-- `-o ./mydata`
+2) creator
+  Purpose:
+  - fetch creator answers + articles in batch
+  - 批量抓取作者回答和专栏
 
-5. 批量抓取
-`./zhihu batch urls.txt -c 4`
-`python3 cli/app.py batch urls.txt -c 4`
+  Input:
+  - profile URL: `https://www.zhihu.com/people/<url_token>`
+  - raw token: `<url_token>`
 
-6. 收藏夹监控
-`./zhihu monitor 78170682`
-`python3 cli/app.py monitor 78170682`
+  Options:
+  - `-o, --output PATH` output base directory
+  - `--answers INT` max answers (default 10, >= 0)
+  - `--articles INT` max articles (default 5, >= 0)
+  - `-i, --no-images` skip image downloading
 
-7. 查询数据库
-`./zhihu query "Transformer"`
-`python3 cli/app.py query "Transformer"`
+  Defaults:
+  - answers = 10
+  - articles = 5
+  - output base = `{DEFAULT_OUTPUT_DIR}`
 
-8. 交互模式
-`./zhihu interactive`
-`python3 cli/app.py interactive`
+  Examples:
+  - `./zhihu creator "https://www.zhihu.com/people/iterator"`
+  - `./zhihu creator iterator --answers 20 --articles 10`
 
-注意：
-- 交互模式当前支持回答 / 专栏 / 问题页
-- 交互模式暂不支持直接粘贴 `people/...` 作者主页
-- 作者主页请使用 `creator` 命令
+3) batch
+  Purpose:
+  - load URL list file and fetch concurrently
+  - 从文件读取 URL 列表并发抓取
 
-默认输出目录：
-- `data/entries/`：普通 `fetch` / `batch` / `monitor`
-- `data/creators/<url_token>/`：作者模式
-- `data/zhihu.db`：统一数据库
+  Options:
+  - `-o, --output PATH`
+  - `-c, --concurrency INT` requested concurrency (effective cap: 8)
+  - `-i, --no-images`
+  - `-b, --headless`
 
-作者目录里会生成：
-- `creator.json`：作者信息与同步状态
-- `README.md`：作者本地索引页
+  Example:
+  - `./zhihu batch urls.txt -c 4`
 
-命令速查：
-- `fetch`
-- `creator`
-- `batch`
-- `monitor`
-- `query`
-- `interactive`
-- `config --show`
-- `check`
-- `manual`
+4) monitor
+  Purpose:
+  - incremental monitoring for a Zhihu collection
+  - 知乎收藏夹增量监控与下载
+
+  Options:
+  - `-o, --output PATH`
+  - `-c, --concurrency INT` (effective cap: 8)
+  - `-i, --no-images`
+  - `-b, --headless`
+
+  Behavior:
+  - checks new items since last pointer
+  - pointer advances only when current round has no failures
+  - avoids skipping failed items in next run
+
+  Example:
+  - `./zhihu monitor 78170682 -c 4`
+
+5) query
+  Purpose:
+  - query local `zhihu.db`
+  - 在本地数据库中检索标题与正文
+
+  Options:
+  - `-l, --limit INT` max rows (default 10)
+  - `-d, --data-dir PATH` where `zhihu.db` is located
+
+  Example:
+  - `./zhihu query "Transformer" -l 20`
+
+6) interactive
+  Purpose:
+  - interactive terminal workflow for quick manual capture
+  - 交互式终端抓取流程
+
+  Current support:
+  - answer / article / question links
+  - does NOT parse `people/...` creator links in interactive mode
+  - use `creator` command for profile URLs
+
+7) config
+  Purpose:
+  - show loaded configuration
+
+  Options:
+  - `--show` print current config summary
+  - `--path` show config file path
+
+  Examples:
+  - `./zhihu config --show`
+  - `./zhihu config --path`
+
+8) check
+  Purpose:
+  - environment sanity checks
+
+  Checks:
+  - `config.yaml` existence
+  - configured cookie file validity
+  - Playwright availability under current browser config
+
+  Example:
+  - `./zhihu check`
+
+9) manual
+  Purpose:
+  - open this built-in manual in pager
+
+OUTPUT STRUCTURE
+  Base: `{DEFAULT_OUTPUT_DIR}`
+
+  - `entries/`
+    normal outputs from fetch / batch / monitor
+  - `creators/<url_token>/`
+    creator-mode outputs
+  - `zhihu.db`
+    shared SQLite database
+
+  Creator directory files:
+  - `creator.json`: creator metadata + sync state
+  - `README.md`: local index for this creator
+
+ARCHITECTURE (LAYER MAP)
+  CLI Layer
+  - `cli/app.py` command routing + orchestration
+  - `cli/interactive.py` guided terminal mode
+
+  Fetch Layer
+  - `core/scraper.py`
+    URL type detection, protocol-first fetch, question pagination,
+    creator pagination, image download
+
+  Access Layer
+  - `core/api_client.py` Zhihu API access + cookie-based requests
+  - `core/browser_fallback.py` Playwright fallback (mainly article path)
+
+  Data Layer
+  - `core/converter.py` HTML -> Markdown conversion
+  - `core/db.py` SQLite persistence and query
+  - `core/monitor.py` incremental collection pointer management
+
+  Config & Runtime
+  - `core/config.py` config loading + logging + humanized delay
+  - `core/cookie_manager.py` cookie file + cookie pool handling
+
+CURRENT LIMITS
+  - interactive mode does not accept creator profile URLs (`people/...`)
+  - browser fallback is strongest on article path; answer/question stay API-first
+  - query uses SQLite keyword matching, not advanced ranking search
+
+QUICK START
+  - `python3 cli/app.py check`
+  - `python3 cli/app.py manual`
 """.strip()
 
     with console.pager(styles=True):
