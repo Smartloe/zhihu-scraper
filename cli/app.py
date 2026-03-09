@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from random import uniform
 import asyncio
+import json
 import typer
 from rich import print as rprint
 from rich.panel import Panel
@@ -115,6 +116,25 @@ def build_output_folder_name(item_date: str, title: str, author: str, item_key: 
 
     rendered = sanitize_filename(rendered, max_length=120)
     return f"{rendered} ({item_key})"
+
+
+def resolve_entries_output_dir(base_dir: Path) -> Path:
+    """
+    Resolve the content root for normal fetch/batch/monitor outputs.
+    解析普通抓取输出的内容根目录。
+    """
+    if base_dir.name == "entries":
+        return base_dir
+    return base_dir / "entries"
+
+
+def resolve_creator_output_dir(base_dir: Path, url_token: str) -> Path:
+    """
+    Resolve the content root for creator outputs.
+    解析作者模式输出的内容根目录。
+    """
+    safe_token = sanitize_filename(url_token, max_length=80)
+    return base_dir / "creators" / safe_token
 
 
 def print_question_limit_warning(limit: int) -> None:
@@ -679,7 +699,8 @@ async def _fetch_and_save(
     items = data if isinstance(data, list) else [data]
     await _save_items(
         items=items,
-        output_dir=output_dir,
+        content_root=resolve_entries_output_dir(output_dir),
+        db_root=output_dir,
         download_images=download_images,
         source_url_fallback=url,
         collection_id=collection_id,
@@ -711,27 +732,35 @@ async def _fetch_creator_and_save(
     creator_name = creator_info.get("name", creator_info.get("url_token", creator))
     rprint(f"[cyan]👤 Creator / 作者[/cyan]: {creator_name} ({creator_info.get('url_token', 'unknown')})")
 
-    await _save_items(
+    creator_root = resolve_creator_output_dir(output_dir, creator_info.get("url_token", creator))
+
+    saved_records = await _save_items(
         items=items,
-        output_dir=output_dir,
+        content_root=creator_root,
+        db_root=output_dir,
         download_images=download_images,
         source_url_fallback=f"https://www.zhihu.com/people/{creator_info.get('url_token', creator)}",
     )
+
+    _write_creator_metadata(creator_root, creator_info, saved_records)
 
 
 async def _save_items(
     *,
     items: List[Dict[str, Any]],
-    output_dir: Path,
+    content_root: Path,
+    db_root: Path,
     download_images: bool,
     source_url_fallback: str,
     collection_id: Optional[str] = None,
-) -> None:
+) -> List[Dict[str, Any]]:
     """
     Save normalized content items to Markdown, images, and SQLite.
     将标准化内容保存到 Markdown、图片目录和 SQLite。
     """
     from datetime import datetime
+
+    content_root.mkdir(parents=True, exist_ok=True)
 
     image_cfg = cfg.crawler.images
     images_subdir = cfg.output.images_subdir or "images"
@@ -739,7 +768,8 @@ async def _save_items(
 
     from core.db import ZhihuDatabase
 
-    db = ZhihuDatabase(str(output_dir / "zhihu.db"))
+    db = ZhihuDatabase(str(db_root / "zhihu.db"))
+    saved_records: List[Dict[str, Any]] = []
     try:
         for item in items:
             title = sanitize_filename(item["title"])
@@ -749,7 +779,7 @@ async def _save_items(
             item_key = sanitize_filename(f"{item.get('type', 'item')}-{item.get('id', 'unknown')}", max_length=80)
 
             folder_name = build_output_folder_name(item_date, title, author, item_key)
-            folder = output_dir / folder_name
+            folder = content_root / folder_name
             folder.mkdir(parents=True, exist_ok=True)
 
             # Download images / 下载图片
@@ -783,11 +813,104 @@ async def _save_items(
             out_path.write_text(full_md, encoding="utf-8")
 
             db.save_article(item, full_md, collection_id=collection_id)
+            saved_records.append({
+                "item": item,
+                "folder": folder,
+                "markdown_path": out_path,
+            })
 
             rprint(f"✅ Saved / 保存: [cyan]{author}[/] - {title[:25]}...")
             rprint(f"   📁 {out_path} & DB / 入库 DB")
     finally:
         db.close()
+
+    return saved_records
+
+
+def _write_creator_metadata(
+    creator_root: Path,
+    creator_info: Dict[str, Any],
+    saved_records: List[Dict[str, Any]],
+) -> None:
+    """
+    Write creator metadata files under the creator directory.
+    在作者目录下写入元信息文件。
+    """
+    from datetime import datetime
+
+    fetched_at = datetime.now().isoformat(timespec="seconds")
+    answer_records = [record for record in saved_records if record["item"].get("type") == "answer"]
+    article_records = [record for record in saved_records if record["item"].get("type") == "article"]
+
+    creator_payload = {
+        "name": creator_info.get("name", creator_info.get("url_token", "unknown")),
+        "url_token": creator_info.get("url_token", "unknown"),
+        "headline": creator_info.get("headline", ""),
+        "answer_count": creator_info.get("answer_count", 0),
+        "articles_count": creator_info.get("articles_count", 0),
+        "fetched_at": fetched_at,
+        "saved_answers": len(answer_records),
+        "saved_articles": len(article_records),
+        "items": [
+            {
+                "id": record["item"].get("id", ""),
+                "type": record["item"].get("type", ""),
+                "title": record["item"].get("title", ""),
+                "date": record["item"].get("date", ""),
+                "url": record["item"].get("url", ""),
+                "markdown_path": str(record["markdown_path"].relative_to(creator_root)),
+            }
+            for record in saved_records
+        ],
+    }
+
+    creator_json_path = creator_root / "creator.json"
+    creator_json_path.write_text(
+        json.dumps(creator_payload, ensure_ascii=True, indent=2),
+        encoding="utf-8",
+    )
+
+    lines = [
+        f"# {creator_payload['name']}",
+        "",
+        f"> **URL Token**: `{creator_payload['url_token']}`  ",
+        f"> **Zhihu Profile / 作者主页**: [https://www.zhihu.com/people/{creator_payload['url_token']}](https://www.zhihu.com/people/{creator_payload['url_token']})  ",
+        f"> **Fetched At / 抓取时间**: {creator_payload['fetched_at']}",
+        "",
+    ]
+
+    if creator_payload["headline"]:
+        lines.extend([
+            f"> **Headline / 简介**: {creator_payload['headline']}",
+            "",
+        ])
+
+    lines.extend([
+        "## Summary / 概览",
+        "",
+        f"- Saved answers / 已保存回答: {creator_payload['saved_answers']}",
+        f"- Saved articles / 已保存专栏: {creator_payload['saved_articles']}",
+        "",
+        "## Items / 内容列表",
+        "",
+        "| Type | Title | Date | Markdown | Source |",
+        "|---|---|---|---|---|",
+    ])
+
+    for record in saved_records:
+        item = record["item"]
+        item_type = item.get("type", "")
+        title = item.get("title", "").replace("|", "\\|")
+        item_date = item.get("date", "")
+        markdown_rel = record["markdown_path"].relative_to(creator_root)
+        source_url = item.get("url", "")
+        lines.append(
+            f"| {item_type} | {title} | {item_date} | "
+            f"[index.md]({markdown_rel.as_posix()}) | [source]({source_url}) |"
+        )
+
+    creator_readme_path = creator_root / "README.md"
+    creator_readme_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # ============================================================
