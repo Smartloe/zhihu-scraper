@@ -1,145 +1,247 @@
 <div align="center">
 
-# Zhihu Scraper
-**A local-first Zhihu extraction tool. It uses protocol-layer fetching by default, falls back to Playwright for blocked columns, and stores results as Markdown plus SQLite.**
+# Zhihu-Scraper
+### Local-First Zhihu Scraper | 知乎爬虫
 
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/static/v1?label=protocol-first&message=curl__cffi&color=0F766E&style=flat-square" alt="Protocol First" />
-  <img src="https://img.shields.io/static/v1?label=fallback&message=Playwright&color=2EAD33&style=flat-square" alt="Playwright Fallback" />
+**A local-first Zhihu extraction tool: protocol-first by default, Playwright as fallback when needed, and direct outputs to Markdown, image assets, and SQLite.**
+
+<p>
+  <img src="https://img.shields.io/static/v1?label=build&message=placeholder&color=8B949E&style=flat-square" alt="Build Badge" />
+  <img src="https://img.shields.io/static/v1?label=version&message=v3.0.0&color=2F81F7&style=flat-square" alt="Version Badge" />
+  <img src="https://img.shields.io/static/v1?label=license&message=MIT&color=3FB950&style=flat-square" alt="License Badge" />
+  <img src="https://img.shields.io/static/v1?label=python&message=3.10%2B&color=3776AB&style=flat-square&logo=python&logoColor=white" alt="Python Badge" />
 </p>
 
-<p align="center">
-  <strong>
-    <a href="README.md">简体中文</a> |
-    English
-  </strong>
+<p>
+  <a href="README.md">简体中文</a> · <strong>English</strong>
 </p>
 
-<p align="center">
+<p>
   <a href="#quick-start">Quick Start</a> ·
-  <a href="#common-commands">Commands</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#configuration">Configuration</a> ·
   <a href="#architecture">Architecture</a> ·
+  <a href="#roadmap">Roadmap</a> ·
   <a href="#faq">FAQ</a>
 </p>
 
 </div>
 
-> For academic research and personal learning only. Please respect Zhihu's Terms of Service. The repository provides `cookies.example.json` as a template; copy it to local `cookies.json` before adding real values.
+> [!WARNING]
+> **Disclaimer**
+>
+> This project is for learning, research, personal archival, and technical exploration only. Please comply with Zhihu's Terms of Service, robots restrictions, and local laws. **Do not use it for unauthorized scraping, resale, credential abuse, large-scale account operations, or any illegal activity.**
 
-## In One Line
+## Overview
 
-This is a local-use Zhihu scraper: stay on the lightweight protocol path whenever possible, only open a browser when necessary, and archive everything into Markdown files plus a local database.
+`Zhihu-Scraper` is not a heavy hosted scraping platform. It is a **local-first archival tool** for Zhihu content.
 
-## Best-Fit Scenarios
+What it currently does well:
 
-| Good Fit | Not a Good Fit |
-|---|---|
-| Archiving answers, question pages, and column articles | Building a long-running online scraping platform |
-| Saving learning material into a local knowledge base | Expecting zero anti-bot friction |
-| Searching and organizing content with SQLite | Replacing a production-grade data service |
+- Fetch **single answers**
+- Fetch **column articles**
+- Fetch the latest **N answers from a question page**
+- Fetch **answers and articles from a creator profile**
+- Incrementally monitor **collections**
+- Save outputs as **Markdown + images + SQLite**
+
+What it does **not** officially provide yet:
+
+- Topic-level scraping
+- JSON / CSV / MySQL export
+- GUI interface
+- LLM-based content analysis
+
+Those belong in the [Roadmap](#roadmap), not in the current feature list.
 
 ## Quick Start
 
+The goal is to get your first successful fetch within **3 minutes**.
+
 ### 1. Requirements
 
-- Python `3.10+`
-- Node.js is recommended for `PyExecJS`
-- Playwright browser binaries if you want column fallback
+- **Python 3.10+**
+- Optional: **Playwright** for the browser fallback path
+- Optional: a local **Chrome** installation
 
 ### 2. Install
+
+If you only want the base protocol-first mode:
 
 ```bash
 git clone https://github.com/yuchenzhu-research/zhihu-scraper.git
 cd zhihu-scraper
-./install.sh
+pip install -e .
 ```
 
-### 3. Prepare Cookies
+If you also want browser fallback support:
 
-The repository includes a `cookies.example.json` template. Copy it first:
+```bash
+git clone https://github.com/yuchenzhu-research/zhihu-scraper.git
+cd zhihu-scraper
+pip install -e ".[full]"
+playwright install chromium
+```
+
+### 3. Configure Cookies
+
+Start by copying the template:
 
 ```bash
 cp cookies.example.json cookies.json
 ```
 
-Then open local `cookies.json` and fill in:
+Then fill in your own `z_c0` and `d_c0` values:
 
 ```json
 [
-  {"name": "z_c0", "value": "your z_c0", "domain": ".zhihu.com"},
-  {"name": "d_c0", "value": "your d_c0", "domain": ".zhihu.com"}
+  {
+    "name": "z_c0",
+    "value": "YOUR_Z_C0_HERE",
+    "domain": ".zhihu.com",
+    "path": "/"
+  },
+  {
+    "name": "d_c0",
+    "value": "YOUR_D_C0_HERE",
+    "domain": ".zhihu.com",
+    "path": "/"
+  }
 ]
 ```
 
-How to get them:
+### 4. Hello World
 
-1. Sign in at `https://www.zhihu.com`
-2. Open browser developer tools
-3. Find `z_c0` and `d_c0` in `Application -> Cookies` or `Network -> Request Headers`
-4. Open the root-level `cookies.json` and replace the placeholders with your own values
-
-### 4. Two Ways to Run It
-
-This project has two equivalent entry paths:
-
-- Wrapper script: `./zhihu ...`
-- Direct Python entry: `python3 cli/app.py ...`
-
-If `./zhihu` is executable in your environment, use that first. If not, or if you want the most explicit entrypoint, use `python3 cli/app.py`.
-
-### 5. Run Your First Fetch
-
-```bash
-./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
-```
-
-Equivalent Python entry:
+The simplest possible fetch:
 
 ```bash
 python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-Question pages can also fetch multiple answers in one run:
+If you prefer the wrapper script:
 
 ```bash
-./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10
-python3 cli/app.py fetch "https://www.zhihu.com/question/28696373" -n 10
+./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-Notes:
+### 5. Open the Full Built-In Manual
 
-- `-n 20` or below usually fits in a single page
-- Above `-n 20`, the scraper automatically switches to paginated fetching
-- Random waits are inserted between pages to reduce anti-bot risk
-- Above `-n 50`, the CLI shows a stronger risk warning
-
-Creator profiles can also be fetched in batches:
+This README is intentionally homepage-level. Full command details live in the terminal manual:
 
 ```bash
-./zhihu creator "https://www.zhihu.com/people/hu-xi-jin" --answers 10 --articles 5
-python3 cli/app.py creator "https://www.zhihu.com/people/hu-xi-jin" --answers 10 --articles 5
+python3 cli/app.py manual
 ```
 
-Creator-mode results are written to `data/creators/<url_token>/`, separate from normal `fetch` outputs.
+## Features
 
-## Support Matrix
+- 🚀 **Async pipeline**
+  - Batch jobs, question pagination, and image downloads all run through asynchronous paths.
 
-| Content Type | Without Cookie | With Cookie | Notes |
-|---|---|---|---|
-| Single answer | Works | Works | Most stable path |
-| Question page answers | Limited | Works | Paginated fetching is supported; guest mode usually sees only a subset |
-| Column article | Often blocked | Works | Can fall back to Playwright |
-| Collection monitoring | Not recommended | Works | Logged-in sessions are more reliable |
+- 🧠 **Protocol-first**
+  - The main path is API / protocol based. Browser automation is not the default runtime model.
 
-## Common Commands
+- 🛟 **Automatic Playwright fallback**
+  - Column articles can fall back to Playwright when the API path is blocked.
 
-For detailed usage, run:
+- 👤 **Creator mode**
+  - Accepts either a creator profile URL or a raw `url_token`, then fetches recent answers and articles in batch.
 
-`python3 cli/app.py manual`
+- 📚 **Archive-friendly outputs**
+  - Results are written directly as `index.md + images/ + zhihu.db`, which works well for long-term local knowledge bases.
 
-Command quick reference:
+- 🔁 **Cookie rotation**
+  - Supports both `cookies.json` and `cookie_pool/*.json`, allowing session rotation under pressure.
+
+- 📡 **Incremental monitoring**
+  - Collections can be monitored incrementally with a persistent progress pointer.
+
+- 🎛️ **Two entry styles**
+  - Both `./zhihu ...` and `python3 cli/app.py ...` are supported.
+
+## Coverage
+
+| Type | Status | Notes |
+|---|---|---|
+| Single answer | Supported | Most stable path |
+| Column article | Supported | Can fall back to Playwright |
+| Question page answers | Supported | Includes pagination and risk warnings |
+| Creator answers | Supported | Via `creator` mode |
+| Creator articles | Supported | Via `creator` mode |
+| Collection monitoring | Supported | Via `monitor` mode |
+| Topic scraping | Planned | No CLI path yet |
+| JSON / CSV / MySQL export | Planned | Current primary outputs are Markdown + SQLite |
+
+## Configuration
+
+### Cookie Configuration
+
+Cookies are one of the most important runtime prerequisites for this project.
+
+- Default local file: `cookies.json`
+- Template file: `cookies.example.json`
+- You can also change the cookie path in `config.yaml`:
+
+```yaml
+zhihu:
+  cookies:
+    file: "cookies.json"
+    required: true
+```
+
+### Cookie Pool
+
+If you maintain multiple sessions, place them like this:
+
+```text
+cookie_pool/
+├── account_a.json
+├── account_b.json
+└── account_c.json
+```
+
+The program loads both `cookies.json` and `cookie_pool/*.json` for rotation.
+
+### Proxy Configuration
+
+One important clarification:
+
+> [!IMPORTANT]
+> **This repository does not currently expose a stable proxy field in `config.yaml`.**
+>
+> In other words, the README should not present "built-in proxy support" as a finished feature.
+
+If your environment requires a proxy, the more reliable current approach is:
+
+- Configure the proxy in your **system or shell environment**
+- Then run this tool normally
+
+For example:
+
+```bash
+export HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://127.0.0.1:7890
+python3 cli/app.py check
+```
+
+This is still an advanced path for now. A cleaner future direction is to expose proxy configuration explicitly in `config.yaml`.
+
+### Security Notes
+
+> [!CAUTION]
+> - Keep `cookies.json` local only. **Do not commit it**
+> - If a cookie has ever leaked, do not keep using it. Re-login and replace it
+> - If you maintain multiple accounts, prefer `cookie_pool/` over putting everything into one file
+
+## Usage
+
+The project provides two equivalent entry styles:
+
+```bash
+./zhihu <command> ...
+python3 cli/app.py <command> ...
+```
+
+Common command index:
 
 - `fetch`
 - `creator`
@@ -151,78 +253,15 @@ Command quick reference:
 - `check`
 - `manual`
 
-## Architecture
+Detailed arguments and examples are intentionally centralized in:
 
-```mermaid
-flowchart LR
-    subgraph I["Entry Layer"]
-        A["CLI Commands"]
-        B["TUI"]
-    end
-
-    subgraph S["Fetch Layer"]
-        C["Zhihu API Client<br/>curl_cffi"]
-        D["Browser Fallback<br/>Playwright"]
-    end
-
-    subgraph P["Processing Layer"]
-        E["HTML / JSON Parsing"]
-        F["Markdown Conversion"]
-        G["Image Download"]
-    end
-
-    subgraph O["Output Layer"]
-        H["index.md"]
-        J["zhihu.db"]
-    end
-
-    A --> C
-    B --> C
-    C --> E
-    D --> E
-    E --> F
-    F --> G
-    F --> H
-    F --> J
+```bash
+python3 cli/app.py manual
 ```
 
-Core ideas:
+## Output Layout
 
-- Browser automation is fallback-only, not the main path
-- Extraction is designed for local archival rather than hosted services
-- Files and database records are stored together for reading plus search
-
-## Execution Flow
-
-```mermaid
-flowchart TD
-    A["Input URL / Collection ID"] --> B{"Content type"}
-    B -->|Answer / Question| C["Protocol fetch"]
-    B -->|Column| D["Column request"]
-    C --> E["HTML / JSON available"]
-    D --> F{"Blocked?"}
-    F -->|No| E
-    F -->|Yes| G["Playwright fallback"]
-    G --> E
-    E --> H["Convert to Markdown"]
-    H --> I["Download images and organize assets"]
-    I --> J["Write to data/"]
-    I --> K["Write to zhihu.db"]
-```
-
-## Project Layout
-
-```text
-cli/           command entrypoint and interactive UI
-core/          scraping, conversion, database, monitoring logic
-static/        signature scripts and static assets
-data/          local output directory, ignored by Git
-browser_data/  browser runtime data, ignored by Git
-```
-
-## Output
-
-By default, results are written to `data/`:
+The default output directory is `data/`:
 
 ```text
 data/
@@ -234,22 +273,103 @@ data/
 │   └── hu-xi-jin/
 │       ├── creator.json
 │       ├── README.md
-│       └── [2026-03-06] Title (answer-1234567890)/
+│       └── [2026-03-06] Title (article-123456)/
 │           ├── index.md
 │           └── images/
 └── zhihu.db
 ```
 
-In practice:
+Notes:
 
-- `entries/` stores normal `fetch` / `batch` / `monitor` outputs
-- `creators/<url_token>/` stores creator-mode content plus local creator metadata and an index page
-- `index.md` is the reading-friendly artifact
-- `images/` stores local media assets
-- `zhihu.db` supports local search and later organization
-- Long-lived showcase exports should go under `examples/outputs/`
+- `entries/`: normal `fetch / batch / monitor` outputs
+- `creators/<url_token>/`: creator-mode outputs
+- `creator.json`: creator metadata and sync status
+- `README.md`: local creator index page
+- `zhihu.db`: shared SQLite database
 
-## Local Development
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph A["CLI Layer"]
+        A1["cli/app.py"]
+        A2["cli/interactive.py"]
+    end
+
+    subgraph B["Fetch Layer"]
+        B1["core/scraper.py"]
+        B2["core/api_client.py"]
+        B3["core/browser_fallback.py"]
+    end
+
+    subgraph C["Data Layer"]
+        C1["core/converter.py"]
+        C2["core/db.py"]
+        C3["core/monitor.py"]
+    end
+
+    subgraph D["Runtime Layer"]
+        D1["core/config.py"]
+        D2["core/cookie_manager.py"]
+    end
+
+    A1 --> B1
+    A2 --> B1
+    B1 --> B2
+    B1 --> B3
+    B1 --> C1
+    C1 --> C2
+    A1 --> C3
+    B2 --> D2
+    B3 --> D2
+    A1 --> D1
+    A2 --> D1
+```
+
+### Design Direction
+
+- **CLI-first**
+  - This is a command-line-first project, not a hosted scraping service
+
+- **Protocol-first**
+  - The default path stays on API / protocol access whenever possible
+
+- **Files + DB**
+  - One output optimized for humans to read
+  - One output optimized for programs to query
+
+## Tech Stack
+
+What the codebase is actually using today:
+
+- **Python 3.10+**
+- **Typer** for CLI commands
+- **Rich / Questionary** for terminal UX
+- **curl_cffi / HTTPX** for protocol access and async downloads
+- **Playwright** for browser fallback
+- **PyYAML / structlog** for configuration and logging
+- **SQLite** for local persistence
+
+> [!NOTE]
+> Your project direction mentions **Pydantic**, **JSON / CSV / MySQL export**, and **topic scraping**, but those are not fully implemented in the current repository yet. They belong in the roadmap, not in the present-tense feature section.
+
+## Roadmap
+
+- [x] Single answer fetching
+- [x] Column article fetching
+- [x] Question-page pagination
+- [x] Creator fetching (answers + articles)
+- [x] Incremental collection monitoring
+- [x] Markdown + images + SQLite outputs
+- [ ] Topic scraping
+- [ ] JSON / CSV export
+- [ ] MySQL persistence
+- [ ] More formal proxy configuration
+- [ ] GUI interface
+- [ ] LLM-based summarization / tagging / clustering
+- [ ] More complete test coverage and CI
+
+## Development
 
 Install development dependencies:
 
@@ -262,29 +382,38 @@ Useful checks:
 ```bash
 python3 -m compileall cli core
 python3 cli/app.py check
-pytest
-ruff check cli core
+python3 cli/app.py manual
 ```
 
 ## FAQ
 
-### `check` says Playwright is missing
+### Why does it still run without cookies, but with incomplete results?
 
-Protocol mode still works. Only the column fallback path is unavailable:
+Guest mode can fetch some public content, but both visibility and stability are weaker. Question pages, creator pages, and collection monitoring rely much more on logged-in sessions.
+
+### Why are column articles more fragile?
+
+Columns are more aggressively protected, which is exactly why the project reserves a Playwright fallback path for them.
+
+### Why doesn't the README document every command flag in full?
+
+Because the homepage should focus on three things:
+
+- getting a new user running within minutes
+- clarifying capability boundaries
+- pointing to the full built-in manual
+
+All detailed command documentation is intentionally centralized in:
 
 ```bash
-pip install -e ".[full]"
-playwright install chromium
+python3 cli/app.py manual
 ```
 
-### Why is guest mode incomplete for question pages
+### Why can't `cookies.json` be committed to the repository?
 
-That is a Zhihu visibility restriction, not a scraper-side omission.
+Because it is sensitive credential material. The repository should only contain the template file `cookies.example.json`.
 
-### Why do some column pages still fail
+## License
 
-Columns are more aggressively protected. In practice you may need fresh cookies, a new login session, or time for the session to cool down.
+This project is licensed under the [MIT License](LICENSE).
 
-### Why does the repository `cookies.json` not work as-is
-
-Because the committed file is only a template. `YOUR_Z_C0_HERE` and `YOUR_D_C0_HERE` are placeholders, so you need to replace them with your own logged-in cookie values.
