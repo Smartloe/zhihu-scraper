@@ -67,6 +67,7 @@ debug_*/
 .bak
 
 .venv_tls_test/     # TLS测试沙箱
+MediaCrawler/
 # ========================================
 # docs/
 # !.gitkeep
