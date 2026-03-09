@@ -6,8 +6,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python Version" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/protocol-first-curl__cffi-0F766E?style=flat-square" alt="Protocol First" />
-  <img src="https://img.shields.io/badge/fallback-Playwright-2EAD33?style=flat-square" alt="Playwright Fallback" />
+  <img src="https://img.shields.io/static/v1?label=protocol-first&message=curl__cffi&color=0F766E&style=flat-square" alt="Protocol First" />
+  <img src="https://img.shields.io/static/v1?label=fallback&message=Playwright&color=2EAD33&style=flat-square" alt="Playwright Fallback" />
 </p>
 
 <p align="center">
