@@ -970,8 +970,9 @@ def _write_creator_metadata(
             "|---|---|---|---|",
         ])
         for item in creator_payload["recent_items"]:
+            escaped_title = item["title"].replace("|", "\\|")
             lines.append(
-                f"| {item['type']} | {item['title'].replace('|', '\\|')} | {item['date']} | "
+                f"| {item['type']} | {escaped_title} | {item['date']} | "
                 f"[index.md]({item['markdown_path']}) |"
             )
         lines.append("")
