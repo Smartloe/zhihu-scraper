@@ -80,24 +80,47 @@ How to get them:
 3. Find `z_c0` and `d_c0` in `Application -> Cookies` or `Network -> Request Headers`
 4. Open the root-level `cookies.json` and replace the placeholders with your own values
 
-### 4. Run Your First Fetch
+### 4. Two Ways to Run It
+
+This project has two equivalent entry paths:
+
+- Wrapper script: `./zhihu ...`
+- Direct Python entry: `python3 cli/app.py ...`
+
+If `./zhihu` is executable in your environment, use that first. If not, or if you want the most explicit entrypoint, use `python3 cli/app.py`.
+
+### 5. Run Your First Fetch
 
 ```bash
 ./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-If `./zhihu` is not executable:
+Equivalent Python entry:
 
 ```bash
 python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
+
+Question pages can also fetch multiple answers in one run:
+
+```bash
+./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10
+python3 cli/app.py fetch "https://www.zhihu.com/question/28696373" -n 10
+```
+
+Notes:
+
+- `-n 20` or below usually fits in a single page
+- Above `-n 20`, the scraper automatically switches to paginated fetching
+- Random waits are inserted between pages to reduce anti-bot risk
+- Above `-n 50`, the CLI shows a stronger risk warning
 
 ## Support Matrix
 
 | Content Type | Without Cookie | With Cookie | Notes |
 |---|---|---|---|
 | Single answer | Works | Works | Most stable path |
-| Question page answers | Limited | Works | Guest mode usually sees only a subset |
+| Question page answers | Limited | Works | Paginated fetching is supported; guest mode usually sees only a subset |
 | Column article | Often blocked | Works | Can fall back to Playwright |
 | Collection monitoring | Not recommended | Works | Logged-in sessions are more reliable |
 
@@ -118,6 +141,19 @@ Suggested adoption path:
 1. Run `check` to validate the environment
 2. Use `fetch` on a single answer or column page
 3. Move to `batch` or `monitor` for larger jobs
+
+Common command pairs:
+
+```bash
+./zhihu check
+python3 cli/app.py check
+
+./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
+python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
+
+./zhihu interactive
+python3 cli/app.py interactive
+```
 
 ## Architecture
 

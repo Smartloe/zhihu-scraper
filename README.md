@@ -80,24 +80,47 @@ cp cookies.example.json cookies.json
 3. 在 `Application -> Cookies` 或 `Network -> Request Headers` 找到 `z_c0` / `d_c0`
 4. 打开项目根目录的 `cookies.json`，把占位值替换成你自己的值
 
-### 4. 先跑一条
+### 4. 两种启动方式
+
+这个项目有两条使用路径，功能是一样的：
+
+- 包装脚本：`./zhihu ...`
+- 直接调用 Python 入口：`python3 cli/app.py ...`
+
+如果你的环境已经给 `./zhihu` 加了执行权限，优先用第一种；如果没有执行权限，或者你想更直观地看到入口文件，就用第二种。
+
+### 5. 先跑一条
 
 ```bash
 ./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
 
-如果 `./zhihu` 没有执行权限：
+等价的 Python 入口写法：
 
 ```bash
 python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
 ```
+
+问题页也可以一次抓多条回答：
+
+```bash
+./zhihu fetch "https://www.zhihu.com/question/28696373" -n 10
+python3 cli/app.py fetch "https://www.zhihu.com/question/28696373" -n 10
+```
+
+说明：
+
+- `-n 20` 以内通常是一页内完成
+- `-n 20` 以上会自动进入分页抓取
+- 分页之间会插入随机等待，降低连续请求过快带来的风控风险
+- `-n 50` 以上会在 CLI 中给出更明显的风险提示
 
 ## 支持范围
 
 | 内容类型 | 无 Cookie | 有 Cookie | 说明 |
 |---|---|---|---|
 | 单条回答 | 可用 | 可用 | 最稳定 |
-| 问题页回答列表 | 受限 | 可用 | 游客模式通常只能拿到少量回答 |
+| 问题页回答列表 | 受限 | 可用 | 已支持分页抓取；游客模式通常只能拿到少量回答 |
 | 专栏文章 | 容易被拦截 | 可用 | 失败时可降级 Playwright |
 | 收藏夹监控 | 不推荐 | 可用 | 依赖登录态更稳 |
 
@@ -118,6 +141,19 @@ python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848
 1. 用 `check` 看环境是否完整
 2. 用 `fetch` 跑一条回答或专栏
 3. 再用 `batch` 或 `monitor` 进入批量场景
+
+常见写法对照：
+
+```bash
+./zhihu check
+python3 cli/app.py check
+
+./zhihu fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
+python3 cli/app.py fetch "https://www.zhihu.com/question/28696373/answer/2835848212"
+
+./zhihu interactive
+python3 cli/app.py interactive
+```
 
 ## 架构设计
 
