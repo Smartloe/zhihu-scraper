@@ -237,7 +237,10 @@ class ZhihuAPIClient:
         Get creator profile information.
         获取创作者资料信息。
         """
-        include = "name,headline,description,url_token,answer_count,articles_count,follower_count"
+        include = (
+            "id,name,headline,description,url_token,avatar_url,avatar_url_template,"
+            "answer_count,articles_count,follower_count,following_count,voteup_count"
+        )
         path = f"/api/v4/members/{url_token}?include={urllib.parse.quote(include)}"
         data = self.fetch_api(path)
         if not data:

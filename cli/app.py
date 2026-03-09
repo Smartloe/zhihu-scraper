@@ -731,6 +731,11 @@ async def _fetch_creator_and_save(
 
     creator_name = creator_info.get("name", creator_info.get("url_token", creator))
     rprint(f"[cyan]👤 Creator / 作者[/cyan]: {creator_name} ({creator_info.get('url_token', 'unknown')})")
+    if creator_info.get("follower_count") or creator_info.get("following_count"):
+        rprint(
+            f"   👥 Followers / 粉丝: {creator_info.get('follower_count', 0)}"
+            f" | Following / 关注: {creator_info.get('following_count', 0)}"
+        )
 
     creator_root = resolve_creator_output_dir(output_dir, creator_info.get("url_token", creator))
 
@@ -843,14 +848,22 @@ def _write_creator_metadata(
     article_records = [record for record in saved_records if record["item"].get("type") == "article"]
 
     creator_payload = {
+        "user_id": creator_info.get("user_id", ""),
         "name": creator_info.get("name", creator_info.get("url_token", "unknown")),
         "url_token": creator_info.get("url_token", "unknown"),
+        "profile_url": creator_info.get("profile_url", f"https://www.zhihu.com/people/{creator_info.get('url_token', 'unknown')}"),
+        "avatar_url": creator_info.get("avatar_url", ""),
         "headline": creator_info.get("headline", ""),
+        "description": creator_info.get("description", ""),
+        "follower_count": creator_info.get("follower_count", 0),
+        "following_count": creator_info.get("following_count", 0),
+        "voteup_count": creator_info.get("voteup_count", 0),
         "answer_count": creator_info.get("answer_count", 0),
         "articles_count": creator_info.get("articles_count", 0),
         "fetched_at": fetched_at,
         "saved_answers": len(answer_records),
         "saved_articles": len(article_records),
+        "local_root": str(creator_root),
         "items": [
             {
                 "id": record["item"].get("id", ""),
@@ -866,18 +879,25 @@ def _write_creator_metadata(
 
     creator_json_path = creator_root / "creator.json"
     creator_json_path.write_text(
-        json.dumps(creator_payload, ensure_ascii=True, indent=2),
+        json.dumps(creator_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
     lines = [
         f"# {creator_payload['name']}",
         "",
+        f"> **User ID**: `{creator_payload['user_id'] or 'unknown'}`  ",
         f"> **URL Token**: `{creator_payload['url_token']}`  ",
-        f"> **Zhihu Profile / 作者主页**: [https://www.zhihu.com/people/{creator_payload['url_token']}](https://www.zhihu.com/people/{creator_payload['url_token']})  ",
+        f"> **Zhihu Profile / 作者主页**: [{creator_payload['profile_url']}]({creator_payload['profile_url']})  ",
         f"> **Fetched At / 抓取时间**: {creator_payload['fetched_at']}",
         "",
     ]
+
+    if creator_payload["avatar_url"]:
+        lines.extend([
+            f"> **Avatar / 头像**: {creator_payload['avatar_url']}",
+            "",
+        ])
 
     if creator_payload["headline"]:
         lines.extend([
@@ -885,11 +905,23 @@ def _write_creator_metadata(
             "",
         ])
 
+    if creator_payload["description"] and creator_payload["description"] != creator_payload["headline"]:
+        lines.extend([
+            f"> **Description / 描述**: {creator_payload['description']}",
+            "",
+        ])
+
     lines.extend([
         "## Summary / 概览",
         "",
+        f"- Followers / 粉丝: {creator_payload['follower_count']}",
+        f"- Following / 关注: {creator_payload['following_count']}",
+        f"- Total upvotes / 总获赞: {creator_payload['voteup_count']}",
+        f"- Zhihu answers / 知乎回答数: {creator_payload['answer_count']}",
+        f"- Zhihu articles / 知乎专栏数: {creator_payload['articles_count']}",
         f"- Saved answers / 已保存回答: {creator_payload['saved_answers']}",
         f"- Saved articles / 已保存专栏: {creator_payload['saved_articles']}",
+        f"- Local root / 本地目录: `{creator_payload['local_root']}`",
         "",
         "## Items / 内容列表",
         "",

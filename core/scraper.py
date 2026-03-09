@@ -470,9 +470,16 @@ class ZhihuCreatorDownloader:
 
         return {
             "creator": {
+                "user_id": creator_profile.get("id", ""),
                 "name": creator_profile.get("name", self.url_token),
                 "url_token": creator_profile.get("url_token", self.url_token),
                 "headline": creator_profile.get("headline", ""),
+                "description": creator_profile.get("description", ""),
+                "profile_url": f"https://www.zhihu.com/people/{creator_profile.get('url_token', self.url_token)}",
+                "avatar_url": creator_profile.get("avatar_url") or creator_profile.get("avatar_url_template", ""),
+                "follower_count": creator_profile.get("follower_count", 0),
+                "following_count": creator_profile.get("following_count", 0),
+                "voteup_count": creator_profile.get("voteup_count", 0),
                 "answer_count": creator_profile.get("answer_count", 0),
                 "articles_count": creator_profile.get("articles_count", 0),
             },
